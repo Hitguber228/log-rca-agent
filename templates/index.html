@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRE Incident Console — Bento Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bento: {
+                            base: '#080a0f',
+                            card: '#0f131c',
+                            cardHover: '#141a26',
+                            border: '#1b2234',
+                            accent: '#6366f1'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Скрытие белой заливки при автозаполнении браузера */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px #090c13 inset !important;
+            -webkit-text-fill-color: #c7d2fe !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+    </style>
+</head>
+<body class="bg-bento-base text-slate-200 min-h-screen p-4 sm:p-8 antialiased font-sans relative">
+    <div class="max-w-7xl mx-auto space-y-4">
+
+        <!-- Top Bar Bento Card -->
+        <header class="bg-bento-card border border-bento-border rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+            <div class="flex items-center gap-3">
+                <div class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </div>
+                <div>
+                    <h1 class="text-base font-semibold text-white tracking-tight">Root Cause Analysis Agent</h1>
+                    <p class="text-xs text-slate-500">Автономная телеметрия микросервисов</p>
+                </div>
+            </div>
+
+            <!-- Управление Telegram 2FA и экшены -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                <div class="flex items-center gap-2 bg-[#090c13] border border-bento-border px-3 py-1.5 rounded-xl">
+                    <span id="authBadge" class="text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-amber-950/60 text-amber-400 border border-amber-800/40 uppercase font-semibold">NOT BOUND</span>
+                    
+                    <input 
+                        type="text" 
+                        id="userTgIdInput" 
+                        placeholder="Твой Telegram ID" 
+                        autocomplete="off"
+                        spellcheck="false"
+                        class="bg-transparent text-xs text-indigo-200 outline-none w-32 font-mono placeholder:text-slate-600 focus:ring-0 focus:border-none focus:outline-none border-0 p-0" 
+                    />
+                    
+                    <button onclick="requestPinForId()" class="text-[11px] px-2.5 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/40 font-medium transition">
+                        Получить PIN
+                    </button>
+
+                    <div id="pinBox" class="hidden items-center gap-1.5 bg-slate-900 border border-indigo-500/30 px-2 py-0.5 rounded-lg">
+                        <span class="text-[10px] text-slate-400 font-mono">PIN:</span>
+                        <span id="pinValue" class="font-mono text-xs font-bold text-emerald-400 select-all">----</span>
+                        <button onclick="copyBindCommand()" title="Скопировать команду /bind" class="text-[10px] text-indigo-300 hover:text-white ml-1">📋</button>
+                    </div>
+
+                    <!-- Кнопка вызова модального окна сброса -->
+                    <button onclick="openUnbindModal()" title="Сбросить привязку" class="text-[11px] px-2 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 transition">
+                        ✕
+                    </button>
+
+                    <button onclick="testTelegramAlert()" title="Тестовый пинг" class="text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                        🔔 Тест
+                    </button>
+                </div>
+
+                <input type="file" id="fileInput" class="hidden" onchange="uploadLogFile()" />
+                <button onclick="document.getElementById('fileInput').click()" class="text-xs px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-bento-cardHover text-slate-300 font-medium border border-bento-border transition">
+                    📁 Импорт логов
+                </button>
+                <button onclick="loadAllIncidents()" class="text-xs px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/20 transition">
+                    ⚡ Анализ сбоев
+                </button>
+            </div>
+        </header>
+
+        <!-- Bento Grid Main Layout -->
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+            <!-- Bento Card 1: Cluster Navigation -->
+            <div class="md:col-span-3 lg:col-span-4 bg-bento-card border border-bento-border rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-3 text-xs">
+                    <span class="font-medium text-slate-400 uppercase tracking-wider text-[10px]">Кластеры сбоев (Sliding Window)</span>
+                    <span id="incidentsCounter" class="text-slate-500">Ожидание анализа...</span>
+                </div>
+                <div id="incidentsTabs" class="flex flex-wrap gap-2">
+                    <div class="text-xs text-slate-500 py-1">Запустите анализ для обнаружения инцидентов.</div>
+                </div>
+            </div>
+
+            <!-- Bento Card 2: Root Cause Hero -->
+            <div class="md:col-span-2 bg-gradient-to-br from-[#121726] to-bento-card border border-indigo-950/60 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between">
+                <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none"></div>
+                <div>
+                    <span class="text-[10px] font-mono uppercase tracking-wider text-indigo-400 bg-indigo-950/50 px-2 py-0.5 rounded-md border border-indigo-800/40">Первопричина (Root Cause)</span>
+                    <div id="rootService" class="text-xl font-bold text-slate-100 mt-3">—</div>
+                    <div id="rootMessage" class="text-xs text-slate-400 mt-2 font-mono break-words leading-relaxed">—</div>
+                </div>
+                <div class="pt-4 mt-4 border-t border-slate-800/50 flex items-center justify-between text-xs text-slate-500">
+                    <span>Статус узла</span>
+                    <span id="rootStatusBadge" class="font-mono text-[11px] text-amber-400">WAITING</span>
+                </div>
+            </div>
+
+            <!-- Bento Card 3: Start Time Metric -->
+            <div class="bg-bento-card border border-bento-border rounded-2xl p-5 flex flex-col justify-between">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Время первого сбоя</span>
+                <div id="startTime" class="text-xl font-bold font-mono text-slate-200 my-2">—</div>
+                <div class="text-xs text-slate-500">По временной шкале логов</div>
+            </div>
+
+            <!-- Bento Card 4: Impact Metric -->
+            <div class="bg-bento-card border border-bento-border rounded-2xl p-5 flex flex-col justify-between">
+                <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">Радиус поражения</span>
+                <div id="chainLength" class="text-xl font-bold text-amber-400 my-2">0 событий</div>
+                <div class="text-xs text-slate-500">В активном каскаде</div>
+            </div>
+
+            <!-- Bento Card 5: Cascade Timeline -->
+            <div class="md:col-span-2 bg-bento-card border border-bento-border rounded-2xl p-5 flex flex-col">
+                <div class="flex items-center justify-between pb-3 mb-3 border-b border-bento-border">
+                    <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">Хронология сбоя (Cascade Flow)</span>
+                    <span id="timelineCount" class="text-[11px] text-slate-500">0 этапов</span>
+                </div>
+                <div id="timelineContainer" class="space-y-2.5 overflow-y-auto max-h-[380px] pr-1.5 flex-1">
+                    <p class="text-xs text-slate-500 py-6 text-center">Выберите кластер для отображения таймлайна.</p>
+                </div>
+            </div>
+
+            <!-- Bento Card 6: AI SRE Postmortem -->
+            <div class="md:col-span-2 bg-bento-card border border-bento-border rounded-2xl p-5 flex flex-col">
+                <div class="flex items-center justify-between pb-3 mb-3 border-b border-bento-border">
+                    <span class="text-[10px] font-mono uppercase tracking-wider text-indigo-300">Инженерный разбор (AI Summary)</span>
+                    <button onclick="copyReport()" class="text-xs text-indigo-400 hover:text-indigo-300 transition">
+                        Копировать
+                    </button>
+                </div>
+                <div id="reportBox" class="text-xs leading-relaxed text-slate-300 overflow-y-auto max-h-[380px] prose prose-invert max-w-none flex-1">
+                    <p class="text-xs text-slate-500 py-6 text-center">Ожидание данных...</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения сброса -->
+    <div id="unbindModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="bg-[#0f131c] border border-bento-border w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-4">
+            <div class="flex items-start gap-3.5">
+                <div class="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-semibold text-white">Сброс авторизации</h3>
+                    <p class="text-xs text-slate-400 mt-1 leading-relaxed">
+                        Вы уверены, что хотите сбросить авторизацию? <br>
+                        <span class="text-rose-400/90 font-medium">(Вы потеряете привязку Telegram оповестителя)</span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-bento-border/70">
+                <button onclick="closeUnbindModal()" class="text-xs px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-medium border border-bento-border transition">
+                    Отмена
+                </button>
+                <button onclick="confirmUnbind()" class="text-xs px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-medium shadow-lg shadow-rose-600/20 transition">
+                    Сбросить привязку
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allIncidents = [];
+        let rawReportText = "";
+        let activeGeneratedPin = "";
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkAuthStatus();
+            setInterval(checkAuthStatus, 3000);
+        });
+
+        async function checkAuthStatus() {
+            try {
+                const res = await fetch('/api/auth/status');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const badge = document.getElementById('authBadge');
+                const input = document.getElementById('userTgIdInput');
+
+                if (data.active_chat_id) {
+                    badge.className = "text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-950/60 text-emerald-400 border border-emerald-800/40 uppercase font-semibold";
+                    badge.innerText = "VERIFIED";
+                    if (document.activeElement !== input && !input.value) {
+                        input.value = data.active_chat_id;
+                    }
+                    document.getElementById('pinBox').classList.add('hidden');
+                } else if (data.pending_pin) {
+                    badge.className = "text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-indigo-950/60 text-indigo-300 border border-indigo-800/40 uppercase font-semibold";
+                    badge.innerText = "WAITING /bind";
+                    activeGeneratedPin = data.pending_pin;
+                    document.getElementById('pinValue').innerText = data.pending_pin;
+                    document.getElementById('pinBox').classList.remove('hidden');
+                    document.getElementById('pinBox').classList.add('flex');
+                } else {
+                    badge.className = "text-[9px] font-mono px-1.5 py-0.5 rounded-md bg-amber-950/60 text-amber-400 border border-amber-800/40 uppercase font-semibold";
+                    badge.innerText = "NOT BOUND";
+                    document.getElementById('pinBox').classList.add('hidden');
+                }
+            } catch(e) {}
+        }
+
+        async function requestPinForId() {
+            const cid = document.getElementById('userTgIdInput').value.trim();
+            if (!cid || !/^\d+$/.test(cid)) {
+                return alert('Введите корректный числовой Telegram ID');
+            }
+
+            const res = await fetch('/api/auth/request-pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chat_id: cid })
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                activeGeneratedPin = data.pin;
+                document.getElementById('pinValue').innerText = data.pin;
+                document.getElementById('pinBox').classList.remove('hidden');
+                document.getElementById('pinBox').classList.add('flex');
+                alert(`PIN сгенерирован: ${data.pin}\nОтправьте боту в Telegram: /bind ${data.pin}`);
+            }
+        }
+
+        function copyBindCommand() {
+            if (!activeGeneratedPin) return;
+            navigator.clipboard.writeText(`/bind ${activeGeneratedPin}`);
+            alert('Команда скопирована: /bind ' + activeGeneratedPin);
+        }
+
+        /* Управление модальным окном сброса */
+        function openUnbindModal() {
+            document.getElementById('unbindModal').classList.remove('hidden');
+        }
+
+        function closeUnbindModal() {
+            document.getElementById('unbindModal').classList.add('hidden');
+        }
+
+        async function confirmUnbind() {
+            closeUnbindModal();
+            const res = await fetch('/api/auth/unbind', { method: 'POST' });
+            if (res.ok) {
+                const input = document.getElementById('userTgIdInput');
+                input.value = '';
+                document.getElementById('pinBox').classList.add('hidden');
+                checkAuthStatus();
+            }
+        }
+
+        async function testTelegramAlert() {
+            try {
+                const res = await fetch('/settings/telegram/test', { method: 'POST' });
+                if (res.ok) {
+                    alert('Тестовое уведомление успешно отправлено в Telegram!');
+                } else {
+                    alert('Не удалось отправить. Убедитесь, что чат верифицирован через /bind.');
+                }
+            } catch(e) {
+                alert('Ошибка соединения с сервером.');
+            }
+        }
+
+        async function uploadLogFile() {
+            const input = document.getElementById('fileInput');
+            if (!input.files.length) return;
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+
+            const res = await fetch('/logs/upload', { method: 'POST', body: formData });
+            await res.json();
+            loadAllIncidents();
+        }
+
+        async function loadAllIncidents() {
+            const res = await fetch('/rca/incidents');
+            allIncidents = await res.json();
+
+            const tabs = document.getElementById('incidentsTabs');
+            tabs.innerHTML = '';
+
+            if (!allIncidents.length) {
+                tabs.innerHTML = '<div class="text-xs text-slate-500 py-1">Аномалий не найдено.</div>';
+                document.getElementById('incidentsCounter').innerText = '0 инцидентов';
+                return;
+            }
+
+            document.getElementById('incidentsCounter').innerText = `${allIncidents.length} кластера(ов)`;
+
+            allIncidents.forEach((inc, idx) => {
+                const btn = document.createElement('button');
+                btn.id = `tab-${inc.incident_id}`;
+                btn.className = `px-3.5 py-1.5 rounded-xl text-xs font-medium border transition ${
+                    idx === allIncidents.length - 1
+                    ? 'bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                    : 'bg-[#0b0e17] border-bento-border text-slate-400 hover:border-slate-700'
+                }`;
+                btn.innerHTML = `<span class="font-bold">#${inc.incident_id}</span> ${inc.first_affected_service} <span class="text-slate-500 ml-1 font-mono">${inc.incident_start.split('T')[1]}</span>`;
+                btn.onclick = () => selectIncident(inc.incident_id);
+                tabs.appendChild(btn);
+            });
+
+            selectIncident(allIncidents[allIncidents.length - 1].incident_id);
+        }
+
+        async function selectIncident(id) {
+            const target = allIncidents.find(i => i.incident_id === id);
+            if (!target) return;
+
+            allIncidents.forEach(inc => {
+                const b = document.getElementById(`tab-${inc.incident_id}`);
+                if (b) {
+                    b.className = inc.incident_id === id
+                        ? 'px-3.5 py-1.5 rounded-xl text-xs font-medium border bg-indigo-600/20 border-indigo-500 text-indigo-200'
+                        : 'px-3.5 py-1.5 rounded-xl text-xs font-medium border bg-[#0b0e17] border-bento-border text-slate-400 hover:border-slate-700';
+                }
+            });
+
+            document.getElementById('startTime').innerText = target.incident_start.split('T')[1];
+            document.getElementById('rootService').innerText = target.root_cause_candidate.service;
+            document.getElementById('rootMessage').innerText = target.root_cause_candidate.raw_message;
+            document.getElementById('rootStatusBadge').innerText = `${target.root_cause_candidate.level} DETECTED`;
+            document.getElementById('chainLength').innerText = `${target.chain_length} событий`;
+            document.getElementById('timelineCount').innerText = `${target.cascade_flow.length} событий`;
+
+            const container = document.getElementById('timelineContainer');
+            container.innerHTML = '';
+            target.cascade_flow.forEach(item => {
+                const badge = item.level === 'CRITICAL' ? 'bg-red-950/80 text-red-400 border-red-800/80' :
+                              item.level === 'ERROR' ? 'bg-rose-950/80 text-rose-400 border-rose-800/80' :
+                              'bg-amber-950/80 text-amber-400 border-amber-800/80';
+
+                container.innerHTML += `
+                    <div class="p-2.5 rounded-xl border border-bento-border bg-[#0a0d14] flex items-start gap-3">
+                        <span class="text-[11px] font-mono text-slate-500 mt-0.5">${item.timestamp}</span>
+                        <span class="text-[9px] font-mono px-1.5 py-0.5 rounded-md border ${badge} uppercase font-bold">${item.level}</span>
+                        <div class="flex-1 min-w-0">
+                            <span class="text-xs font-semibold text-slate-200 block truncate">${item.service}</span>
+                            <span class="text-xs text-slate-400 block break-words mt-0.5 leading-snug">${item.message}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('reportBox').innerHTML = '<span class="text-xs text-slate-500 animate-pulse">Генерация ответа моделью...</span>';
+            const repRes = await fetch(`/rca/report?incident_id=${id}`);
+            const repData = await repRes.json();
+            rawReportText = repData.report;
+            document.getElementById('reportBox').innerHTML = marked.parse(rawReportText);
+        }
+
+        function copyReport() {
+            if (!rawReportText) return;
+            navigator.clipboard.writeText(rawReportText);
+            alert('Отчет скопирован в буфер обмена');
+        }
+    </script>
+</body>
+</html>
