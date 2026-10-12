@@ -2390,6 +2390,7 @@
       if (tab === 'incidents') {
         if (incTab) { incTab.classList.remove('hidden'); incTab.classList.add('flex'); }
         if (incBtn) incBtn.className = activeClass;
+        if (typeof updateRcaRunButtonState === 'function') updateRcaRunButtonState();
       } else if (tab === 'explorer') {
         if (expTab) { expTab.classList.remove('hidden'); expTab.classList.add('flex'); }
         if (expBtn) expBtn.className = activeClass;
@@ -2527,12 +2528,24 @@
         initAssistantContextOptions();
         loadHealthSummary();
       } else if (type === 'rca_report_ready') {
-        if (selectedIncident && (String(selectedIncident.incident_id) === String(data.incident_id) || selectedIncident.trace_id === data.trace_id)) {
+        if (allIncidents && Array.isArray(allIncidents)) {
+          const matched = allIncidents.find(i => String(i.incident_id) === String(data.incident_id) || (data.trace_id && i.trace_id === data.trace_id));
+          if (matched) {
+            matched.cached_report = data.report;
+            matched.has_cached_report = true;
+            delete matched._liveStreamingReport;
+            delete matched._isStreaming;
+          }
+        }
+        if (selectedIncident && (String(selectedIncident.incident_id) === String(data.incident_id) || (data.trace_id && selectedIncident.trace_id === data.trace_id))) {
           selectedIncident.cached_report = data.report;
           selectedIncident.has_cached_report = true;
+          delete selectedIncident._liveStreamingReport;
+          delete selectedIncident._isStreaming;
           renderReportState();
         }
-        loadIncidents();
+        renderIncidentTabs();
+        if (typeof updateRcaRunButtonState === 'function') updateRcaRunButtonState();
       } else if (type === 'incident_resolved_toggle') {
         loadIncidents();
         loadHealthSummary();
@@ -4014,6 +4027,21 @@
 
         document.getElementById('incidentCountBadge').textContent = allIncidents.length;
 
+        if (allIncidents && Array.isArray(allIncidents)) {
+          allIncidents.forEach(newInc => {
+            if (typeof activeRcaStreamIncidentId !== 'undefined' && activeRcaStreamIncidentId && String(newInc.incident_id) === String(activeRcaStreamIncidentId)) {
+              if (selectedIncident && selectedIncident._liveStreamingReport !== undefined) {
+                newInc._liveStreamingReport = selectedIncident._liveStreamingReport;
+                newInc._isStreaming = true;
+              }
+            }
+            if (selectedIncident && String(newInc.incident_id) === String(selectedIncident.incident_id) && selectedIncident.cached_report && !newInc.cached_report) {
+              newInc.cached_report = selectedIncident.cached_report;
+              newInc.has_cached_report = true;
+            }
+          });
+        }
+
         const activeCount = allIncidents.filter(i => !i.is_resolved).length;
         const resolvedCount = allIncidents.filter(i => i.is_resolved).length;
         const actEl = document.getElementById('hudActiveIncidents');
@@ -4025,7 +4053,10 @@
         renderIncidentTabs();
 
         if (allIncidents.length > 0) {
-          const target = restoreSelectedIncidentFromHash(allIncidents);
+          const currentTarget = selectedIncident 
+            ? allIncidents.find(i => String(i.incident_id) === String(selectedIncident.incident_id)) 
+            : null;
+          const target = currentTarget || restoreSelectedIncidentFromHash(allIncidents);
           selectIncident(target, false);
         }
       } catch (err) {
@@ -4065,9 +4096,13 @@
         const activeCls = isSel
           ? 'bg-gradient-to-r from-indigo-500/20 via-indigo-500/5 to-transparent border-l-4 border-indigo-500 text-white shadow-sm'
           : 'border-l-4 border-transparent hover:bg-slate-900/60 hover:border-slate-700/50 text-slate-300';
-        const hasReportIcon = inc.has_cached_report
-          ? '<span title="AI-отчёт сформирован" class="flex items-center gap-1 text-[10px] text-indigo-400 font-medium px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20"><i data-lucide="sparkles" class="w-3 h-3 text-indigo-400"></i> AI</span>'
-          : '';
+        
+        const isStreaming = (typeof isRcaStreaming !== 'undefined' && isRcaStreaming && String(inc.incident_id) === String(activeRcaStreamIncidentId)) || inc._isStreaming;
+        const hasReportIcon = isStreaming
+          ? '<span title="Идёт анализ LLM..." class="flex items-center gap-1 text-[10px] text-amber-400 font-medium px-1.5 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/20"><i data-lucide="loader-2" class="w-3 h-3 animate-spin text-amber-400"></i> Анализ</span>'
+          : (inc.has_cached_report
+            ? '<span title="AI-отчёт сформирован" class="flex items-center gap-1 text-[10px] text-indigo-400 font-medium px-1.5 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20"><i data-lucide="sparkles" class="w-3 h-3 text-indigo-400"></i> AI</span>'
+            : '');
         const resolvedTag = inc.is_resolved
           ? '<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-semibold">Решено</span>'
           : '<span class="text-[9px] px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25 font-semibold">Открыт</span>';
@@ -4100,15 +4135,21 @@
     }
 
     function selectIncidentById(id) {
-      const target = allIncidents.find(i => i.incident_id === id);
+      const target = allIncidents.find(i => String(i.incident_id) === String(id));
       if (target) selectIncident(target, true);
     }
 
     function selectIncident(inc, updateHash = true) {
       if (!inc) return;
-      if (selectedIncident && String(selectedIncident.incident_id) === String(inc.incident_id) && selectedIncident.cached_report && !inc.cached_report) {
-        inc.cached_report = selectedIncident.cached_report;
-        inc.has_cached_report = true;
+      if (selectedIncident && String(selectedIncident.incident_id) === String(inc.incident_id)) {
+        if (selectedIncident.cached_report && !inc.cached_report) {
+          inc.cached_report = selectedIncident.cached_report;
+          inc.has_cached_report = true;
+        }
+        if (selectedIncident._liveStreamingReport !== undefined && inc._liveStreamingReport === undefined) {
+          inc._liveStreamingReport = selectedIncident._liveStreamingReport;
+          inc._isStreaming = selectedIncident._isStreaming;
+        }
       }
       selectedIncident = inc;
       if (updateHash && inc.incident_id) {
@@ -4133,6 +4174,7 @@
       renderCascadeEvents();
       renderReportState();
       renderIncidentTabs();
+      if (typeof updateRcaRunButtonState === 'function') updateRcaRunButtonState();
       safeUpdateIcons();
     }
 
@@ -4863,6 +4905,35 @@
       return formatted;
     }
 
+    let isRcaStreaming = false;
+    let activeRcaStreamIncidentId = null;
+
+    function updateRcaRunButtonState() {
+      const btn = document.getElementById('runLlmBtn');
+      if (!btn) return;
+
+      if (isRcaStreaming) {
+        btn.disabled = true;
+        btn.classList.add('opacity-70', 'cursor-not-allowed');
+        btn.classList.remove('cursor-pointer', 'hover:bg-indigo-500');
+
+        if (selectedIncident && String(selectedIncident.incident_id) === String(activeRcaStreamIncidentId)) {
+          btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Анализируется...</span>';
+          btn.title = `Идёт генерация отчёта для инцидента #${activeRcaStreamIncidentId}...`;
+        } else {
+          btn.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-amber-300"></i><span>Занят (#${activeRcaStreamIncidentId || '...'})</span>`;
+          btn.title = `Дождитесь завершения анализа инцидента #${activeRcaStreamIncidentId}, чтобы не перегружать модель`;
+        }
+      } else {
+        btn.disabled = false;
+        btn.classList.remove('opacity-70', 'cursor-not-allowed');
+        btn.classList.add('cursor-pointer', 'hover:bg-indigo-500');
+        btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Анализ</span>';
+        btn.title = 'Запустить анализ инцидента через LLM';
+      }
+      safeUpdateIcons();
+    }
+
     function renderReportState(isCached = true) {
       const ph = document.getElementById('reportPlaceholder');
       const cnt = document.getElementById('reportContent');
@@ -4871,47 +4942,97 @@
       const copyBtn = document.getElementById('copyReportBtn');
       const pdfBtn = document.getElementById('exportPdfBtn');
 
-      if (selectedIncident && selectedIncident.cached_report) {
-        ph.classList.add('hidden');
-        cnt.classList.remove('hidden');
-        cnt.innerHTML = formatMarkdownReport(selectedIncident.cached_report);
-        tag.classList.remove('hidden');
-        if (isCached === false) {
-          tag.textContent = 'Обновлено';
-          tag.className = 'text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-        } else {
-          tag.textContent = 'Кэш';
-          tag.className = 'text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+      if (!selectedIncident) {
+        if (ph) ph.classList.remove('hidden');
+        if (cnt) cnt.classList.add('hidden');
+        if (tag) tag.classList.add('hidden');
+        if (tgBtn) tgBtn.classList.add('hidden');
+        if (copyBtn) copyBtn.classList.add('hidden');
+        if (pdfBtn) pdfBtn.classList.add('hidden');
+        updateRcaRunButtonState();
+        safeUpdateIcons();
+        return;
+      }
+
+      // 1. Если для текущего инцидента прямо сейчас идёт живой стриминг:
+      if (selectedIncident._liveStreamingReport !== undefined) {
+        if (ph) ph.classList.add('hidden');
+        if (cnt) {
+          cnt.classList.remove('hidden');
+          const streamedText = selectedIncident._liveStreamingReport;
+          if (streamedText) {
+            cnt.innerHTML = formatMarkdownReport(streamedText) + '<span class="inline-block w-2.5 h-4.5 bg-indigo-400 rounded-sm ml-1.5 animate-pulse align-middle shadow-md shadow-indigo-400/50"></span>';
+          } else {
+            cnt.innerHTML = '<div class="flex items-center gap-2.5 text-indigo-300 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-sm"><i data-lucide="loader-2" class="w-4 h-4 animate-spin shrink-0"></i><span>Инициализация нейросети и подготовка стриминга...</span></div>';
+          }
+        }
+        if (tag) tag.classList.add('hidden');
+        if (tgBtn) tgBtn.classList.add('hidden');
+        if (copyBtn) copyBtn.classList.add('hidden');
+        if (pdfBtn) pdfBtn.classList.add('hidden');
+        updateRcaRunButtonState();
+        safeUpdateIcons();
+        return;
+      }
+
+      // 2. Если у инцидента есть готовый кэшированный отчет:
+      if (selectedIncident.cached_report) {
+        if (ph) ph.classList.add('hidden');
+        if (cnt) {
+          cnt.classList.remove('hidden');
+          cnt.innerHTML = formatMarkdownReport(selectedIncident.cached_report);
+        }
+        if (tag) {
+          tag.classList.remove('hidden');
+          if (isCached === false) {
+            tag.textContent = 'Обновлено';
+            tag.className = 'text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+          } else {
+            tag.textContent = 'Кэш';
+            tag.className = 'text-[10px] px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+          }
         }
         if (tgBtn) tgBtn.classList.remove('hidden');
         if (copyBtn) copyBtn.classList.remove('hidden');
         if (pdfBtn) pdfBtn.classList.remove('hidden');
       } else {
-        ph.classList.remove('hidden');
-        cnt.classList.add('hidden');
-        tag.classList.add('hidden');
+        // 3. Отчета нет - показываем исходный плейсхолдер
+        if (ph) ph.classList.remove('hidden');
+        if (cnt) cnt.classList.add('hidden');
+        if (tag) tag.classList.add('hidden');
         if (tgBtn) tgBtn.classList.add('hidden');
         if (copyBtn) copyBtn.classList.add('hidden');
         if (pdfBtn) pdfBtn.classList.add('hidden');
       }
+      updateRcaRunButtonState();
       safeUpdateIcons();
     }
 
     function resetReportView() {
-      document.getElementById('reportPlaceholder').classList.remove('hidden');
-      document.getElementById('reportContent').classList.add('hidden');
-      document.getElementById('reportCachedTag').classList.add('hidden');
+      const ph = document.getElementById('reportPlaceholder');
+      const cnt = document.getElementById('reportContent');
+      const tag = document.getElementById('reportCachedTag');
+      if (ph) ph.classList.remove('hidden');
+      if (cnt) cnt.classList.add('hidden');
+      if (tag) tag.classList.add('hidden');
       const tgBtn = document.getElementById('shareTgBtn');
       const copyBtn = document.getElementById('copyReportBtn');
       const pdfBtn = document.getElementById('exportPdfBtn');
       if (tgBtn) tgBtn.classList.add('hidden');
       if (copyBtn) copyBtn.classList.add('hidden');
       if (pdfBtn) pdfBtn.classList.add('hidden');
+      updateRcaRunButtonState();
     }
 
     async function requestRcaAnalysis(force = true) {
       if (!selectedIncident) {
         showToastNotification("Выберите инцидент для проведения анализа!", "warn");
+        return;
+      }
+
+      // Защита от параллельного запуска и перегрузки системы
+      if (isRcaStreaming) {
+        showToastNotification(`В данный момент уже идёт анализ инцидента #${activeRcaStreamIncidentId || ''}. Пожалуйста, дождитесь его завершения.`, "warn");
         return;
       }
 
@@ -4921,18 +5042,29 @@
         return;
       }
 
-      const btn = document.getElementById('runLlmBtn');
-      const ph = document.getElementById('reportPlaceholder');
-      const cnt = document.getElementById('reportContent');
+      // Фиксируем целевой инцидент для этого стрим-сеанса (полная изоляция от переключения окон/вкладок)
+      const targetIncident = selectedIncident;
+      const targetIncidentId = String(targetIncident.incident_id);
 
-      btn.disabled = true;
-      btn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Анализ...</span>';
-      safeUpdateIcons();
+      isRcaStreaming = true;
+      activeRcaStreamIncidentId = targetIncidentId;
+      targetIncident._liveStreamingReport = '';
+      targetIncident._isStreaming = true;
 
-      ph.classList.add('hidden');
-      cnt.classList.remove('hidden');
-      cnt.innerHTML = '<div class="flex items-center gap-2.5 text-indigo-300 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-sm"><i data-lucide="loader-2" class="w-4 h-4 animate-spin shrink-0"></i><span>Инициализация нейросети и подготовка стриминга...</span></div>';
-      safeUpdateIcons();
+      updateRcaRunButtonState();
+      renderIncidentTabs();
+
+      // Если пользователь прямо сейчас на этом инциденте, сразу показываем лоадер
+      if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+        const ph = document.getElementById('reportPlaceholder');
+        const cnt = document.getElementById('reportContent');
+        if (ph) ph.classList.add('hidden');
+        if (cnt) {
+          cnt.classList.remove('hidden');
+          cnt.innerHTML = '<div class="flex items-center gap-2.5 text-indigo-300 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-sm"><i data-lucide="loader-2" class="w-4 h-4 animate-spin shrink-0"></i><span>Инициализация нейросети и подготовка стриминга...</span></div>';
+        }
+        safeUpdateIcons();
+      }
 
       let streamRenderScheduled = false;
 
@@ -4941,26 +5073,57 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            incident_data: selectedIncident,
+            incident_data: targetIncident,
             force_refresh: force
           })
         });
 
         if (!res.ok) {
+          if (res.status === 429) {
+            const errData = await res.json().catch(() => ({}));
+            const msg = errData.detail || "Анализ уже выполняется для другого инцидента. Дождитесь завершения.";
+            showToastNotification(msg, "warn");
+            delete targetIncident._liveStreamingReport;
+            delete targetIncident._isStreaming;
+            if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+              renderReportState(true);
+            }
+            return;
+          }
+
           // Fallback на стандартный POST /rca/analyze в случае сбоя стрим-соединения
           const fbRes = await fetch('/rca/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              incident_data: selectedIncident,
+              incident_data: targetIncident,
               force_refresh: force
             })
           });
-          if (!fbRes.ok) throw new Error();
+
+          if (!fbRes.ok) {
+            if (fbRes.status === 429) {
+              const errData = await fbRes.json().catch(() => ({}));
+              showToastNotification(errData.detail || "Сервер занят анализом.", "warn");
+              delete targetIncident._liveStreamingReport;
+              delete targetIncident._isStreaming;
+              if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+                renderReportState(true);
+              }
+              return;
+            }
+            throw new Error();
+          }
+
           const fbData = await fbRes.json();
-          selectedIncident.cached_report = fbData.report;
-          selectedIncident.has_cached_report = true;
-          renderReportState(fbData.cached);
+          targetIncident.cached_report = fbData.report;
+          targetIncident.has_cached_report = true;
+          delete targetIncident._liveStreamingReport;
+          delete targetIncident._isStreaming;
+
+          if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+            renderReportState(fbData.cached);
+          }
           renderIncidentTabs();
           return;
         }
@@ -4975,32 +5138,66 @@
 
           const chunk = decoder.decode(value, { stream: true });
           fullReport += chunk;
+          targetIncident._liveStreamingReport = fullReport;
 
-          if (!streamRenderScheduled) {
-            streamRenderScheduled = true;
-            requestAnimationFrame(() => {
-              cnt.innerHTML = formatMarkdownReport(fullReport) + '<span class="inline-block w-2.5 h-4.5 bg-indigo-400 rounded-sm ml-1.5 animate-pulse align-middle shadow-md shadow-indigo-400/50"></span>';
-              safeUpdateIcons();
-              streamRenderScheduled = false;
-            });
+          // Отрисовываем чанки ТОЛЬКО если пользователь прямо сейчас смотрит именно этот инцидент
+          if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+            if (!streamRenderScheduled) {
+              streamRenderScheduled = true;
+              requestAnimationFrame(() => {
+                // Повторная проверка внутри requestAnimationFrame: пользователь мог переключить окно
+                if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+                  const ph = document.getElementById('reportPlaceholder');
+                  const cnt = document.getElementById('reportContent');
+                  if (ph) ph.classList.add('hidden');
+                  if (cnt) {
+                    cnt.classList.remove('hidden');
+                    cnt.innerHTML = formatMarkdownReport(targetIncident._liveStreamingReport) + 
+                      '<span class="inline-block w-2.5 h-4.5 bg-indigo-400 rounded-sm ml-1.5 animate-pulse align-middle shadow-md shadow-indigo-400/50"></span>';
+                  }
+                  safeUpdateIcons();
+                }
+                streamRenderScheduled = false;
+              });
+            }
           }
         }
 
-        selectedIncident.cached_report = fullReport.trim();
-        selectedIncident.has_cached_report = true;
-        renderReportState(false);
+        targetIncident.cached_report = fullReport.trim();
+        targetIncident.has_cached_report = true;
+        delete targetIncident._liveStreamingReport;
+        delete targetIncident._isStreaming;
+
+        if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+          renderReportState(false);
+        }
         renderIncidentTabs();
+
       } catch (err) {
-        cnt.innerHTML = '<div class="text-rose-400 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-2 text-sm"><i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i><span>Не удалось сгенерировать отчёт. Проверьте соединение с моделью.</span></div>';
+        delete targetIncident._liveStreamingReport;
+        delete targetIncident._isStreaming;
+        if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
+          const cnt = document.getElementById('reportContent');
+          if (cnt) {
+            cnt.innerHTML = '<div class="text-rose-400 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center gap-2 text-sm"><i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i><span>Не удалось сгенерировать отчёт. Проверьте соединение с моделью.</span></div>';
+          }
+        }
       } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Анализ</span>';
-        safeUpdateIcons();
+        delete targetIncident._liveStreamingReport;
+        delete targetIncident._isStreaming;
+        isRcaStreaming = false;
+        activeRcaStreamIncidentId = null;
+        updateRcaRunButtonState();
+        renderIncidentTabs();
       }
     }
 
     async function clearCurrentIncidentCache() {
       if (!selectedIncident) return;
+      if (isRcaStreaming && String(selectedIncident.incident_id) === String(activeRcaStreamIncidentId)) {
+        showToastNotification("Нельзя сбросить отчёт во время активного анализа инцидента.", "warn");
+        return;
+      }
       if (!selectedIncident.cached_report) {
         showToastNotification("Кэшированный отчёт отсутствует.", "warn");
         return;

@@ -725,25 +725,37 @@ async def copilot_chat_endpoint(payload: SreChatRequest):
     }
 
 
+# Замок для предотвращения параллельных тяжелых вызовов LLM и перегрузки системы
+RCA_ANALYSIS_LOCK = asyncio.Lock()
+
+
 @app.post("/rca/analyze")
 async def run_rca_analysis(body: RcaRequestSchema):
+    """Генерирует сводку RCA по инциденту через нейросеть или достает из кэша."""
     inc_data = body.incident_data
     inc_id = str(inc_data.get("incident_id"))
 
     if not body.force_refresh and inc_id in CACHE_REPORTS:
         return {"report": CACHE_REPORTS[inc_id], "cached": True}
 
-    report = await generate_rca_summary(inc_data)
-    CACHE_REPORTS[inc_id] = report
+    if RCA_ANALYSIS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="В данный момент уже выполняется анализ другого инцидента. Пожалуйста, дождитесь его завершения."
+        )
 
-    # Оповещаем открытые вкладки о готовом отчете
-    asyncio.create_task(broadcast_live_event("rca_report_ready", {
-        "incident_id": inc_id,
-        "trace_id": inc_data.get("trace_id"),
-        "report": report
-    }))
+    async with RCA_ANALYSIS_LOCK:
+        report = await generate_rca_summary(inc_data)
+        CACHE_REPORTS[inc_id] = report
 
-    return {"report": report, "cached": False}
+        # Оповещаем открытые вкладки о готовом отчете
+        asyncio.create_task(broadcast_live_event("rca_report_ready", {
+            "incident_id": inc_id,
+            "trace_id": inc_data.get("trace_id"),
+            "report": report
+        }))
+
+        return {"report": report, "cached": False}
 
 
 @app.post("/rca/analyze/stream")
@@ -757,25 +769,42 @@ async def stream_rca_analysis(body: RcaRequestSchema):
             yield CACHE_REPORTS[inc_id]
         return StreamingResponse(cached_stream(), media_type="text/plain; charset=utf-8")
 
+    if RCA_ANALYSIS_LOCK.locked():
+        raise HTTPException(
+            status_code=429,
+            detail="В данный момент уже выполняется анализ другого инцидента. Пожалуйста, дождитесь его завершения."
+        )
+
+    await RCA_ANALYSIS_LOCK.acquire()
+
     async def token_generator():
-        accumulated = []
         try:
-            async for token in stream_rca_summary(inc_data):
-                accumulated.append(token)
-                yield token
-        except Exception as e:
-            print(f"[!] Ошибка во время стриминга RCA: {e}", flush=True)
+            accumulated = []
+            try:
+                async for token in stream_rca_summary(inc_data):
+                    accumulated.append(token)
+                    yield token
+            except Exception as e:
+                print(f"[!] Ошибка во время стриминга RCA: {e}", flush=True)
 
-        full_report = "".join(accumulated).strip()
-        if full_report:
-            CACHE_REPORTS[inc_id] = full_report
-            asyncio.create_task(broadcast_live_event("rca_report_ready", {
-                "incident_id": inc_id,
-                "trace_id": inc_data.get("trace_id"),
-                "report": full_report
-            }))
+            full_report = "".join(accumulated).strip()
+            if full_report:
+                CACHE_REPORTS[inc_id] = full_report
+                asyncio.create_task(broadcast_live_event("rca_report_ready", {
+                    "incident_id": inc_id,
+                    "trace_id": inc_data.get("trace_id"),
+                    "report": full_report
+                }))
+        finally:
+            if RCA_ANALYSIS_LOCK.locked():
+                RCA_ANALYSIS_LOCK.release()
 
-    return StreamingResponse(token_generator(), media_type="text/plain; charset=utf-8")
+    try:
+        return StreamingResponse(token_generator(), media_type="text/plain; charset=utf-8")
+    except Exception:
+        if RCA_ANALYSIS_LOCK.locked():
+            RCA_ANALYSIS_LOCK.release()
+        raise
 
 
 @app.post("/rca/incident/toggle-resolve")

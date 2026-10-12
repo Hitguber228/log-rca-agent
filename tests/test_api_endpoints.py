@@ -56,3 +56,28 @@ def test_rca_incidents(client):
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
+
+
+def test_rca_analyze_concurrency_lock(client):
+    import asyncio
+    from api import RCA_ANALYSIS_LOCK
+
+    # Симулируем активный процесс анализа LLM, захватывая блокировку
+    asyncio.run(RCA_ANALYSIS_LOCK.acquire())
+    try:
+        payload = {
+            "incident_data": {"incident_id": 999999, "trace_id": "test-lock-trace"},
+            "force_refresh": True
+        }
+        # Проверяем блокировку стандартного эндпоинта
+        resp1 = client.post("/rca/analyze", json=payload)
+        assert resp1.status_code == 429
+        assert "выполняется анализ другого инцидента" in resp1.json().get("detail", "")
+
+        # Проверяем блокировку стримингового эндпоинта
+        resp2 = client.post("/rca/analyze/stream", json=payload)
+        assert resp2.status_code == 429
+        assert "выполняется анализ другого инцидента" in resp2.json().get("detail", "")
+    finally:
+        if RCA_ANALYSIS_LOCK.locked():
+            RCA_ANALYSIS_LOCK.release()
