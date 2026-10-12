@@ -14,15 +14,16 @@
 
 ## Архитектура системы (System Architecture)
 
-Схема взаимодействия компонентов: от возникновения сбоя в микросервисах до анализа первопричин искусственным интеллектом и оповещения дежурного инженера.
+Схема взаимодействия компонентов: сбор логов от любой внешней распределённой системы пользователя, анализ первопричин искусственным интеллектом (LLM) и доставка инженерных алертов дежурному.
 
 ```mermaid
 flowchart TD
-    subgraph TargetSystem["1. Контролируемая микросервисная система (Целевой комплекс)"]
-        TargetApp["Бот обработки и расшифровки речи<br/>(Audio-Scriber Bot / main.py)"]
-        Services["Инфраструктурные сервисы<br/>(Распознавание речи Whisper, База данных, Redis, API)"]
-        TargetApp -->|"Запись событий и ошибок"| LiveLog["Журнал событий в реальном времени<br/>(Файл логов: live_service.log)"]
-        Services -->|"Запись каскадных ошибок"| LiveLog
+    subgraph TargetSystem["1. Контролируемая инфраструктура (Любой проект пользователя)"]
+        UserApp["Основное приложение или сервис<br/>(Backend API, Web-сервер, Telegram-бот, воркер)"]
+        UserServices["Связанные микросервисы и компоненты<br/>(Базы данных, Внешние API, Кэш Redis, Очереди)"]
+        UserApp -->|"Запись событий и ошибок"| LiveLog["Журнал событий логов<br/>(live_service.log или любой ваш файл)"]
+        UserServices -->|"Запись каскадных ошибок"| LiveLog
+        UserApp -.->|"Прямая отправка (HTTP Ingest API)"| API
     end
 
     subgraph MonitoringCore["2. Ядро мониторинга и анализа (SRE Аналитический комплекс)"]
@@ -49,7 +50,7 @@ flowchart TD
 ```
 
 ### Как это работает простыми словами:
-1. **Фиксация сбоя**: При возникновении ошибки микросервисы записывают событие со сквозным идентификатором запроса (`trace_id`) в общий журнал логов `live_service.log`.
+1. **Фиксация сбоя**: Любое ваше приложение или микросервис записывает событие со сквозным идентификатором запроса (`trace_id`) в файл логов либо отправляет напрямую через HTTP API.
 2. **Перехват и группировка**: Фоновый сервис `watcher.py` моментально считывает новые записи, связывает цепочку каскадного падения за 1.5 секунды и сохраняет данные в БД.
 3. **Нейросетевой анализ (RCA)**: Языковая модель (LLM) анализирует всю цепочку ошибки, определяет, какой сервис упал первым (эпицентр) и что именно произошло.
 4. **Уведомление и устранение**: Инженер получает краткий алерт в Telegram с готовой командой восстановления (Bash/SQL), а на веб-дашборде видит наглядный граф того, как ошибка распространялась по сервисам.
@@ -82,7 +83,7 @@ flowchart TD
 log-rca-agent/
 ├── api.py                    # Центральный FastAPI сервер и REST API
 ├── bot.py                    # Telegram-бот дежурного инженера (aiogram 3.x)
-├── main.py                   # Целевой сервис мониторинга (Audio-Scriber)
+├── main.py                   # Референсный сервис и симулятор каскадных аварий (/test_crash)
 ├── run_analysis.py           # CLI-утилита быстрого запуска RCA-анализа
 ├── simulate_traffic.py       # Симулятор боевого трафика и фоновых ошибок
 ├── seed_logs.py              # Быстрое наполнение тестовой базы инцидентами
@@ -186,13 +187,107 @@ start_services.bat
 
 ---
 
+## Интеграция: как отправлять логи из вашего проекта
+
+Платформа является универсальной и может принимать логи от **любого внешнего проекта** (FastAPI, Django, Flask, Node.js, Go, микросервисов, фоновых воркеров или ботов). Доступны два способа интеграции:
+
+### Способ 1. Запись в файл логов (File Logging)
+
+Настройте запись логов вашего сервиса в файл (по умолчанию `live_service.log`, либо укажите свой путь в `.env` через `WATCH_LOG_PATH` или прямо в Веб-панели).
+
+#### Пример для Python (стандартный модуль `logging`):
+```python
+import logging
+import uuid
+
+# 1. Формат логов со сквозным trace_id и именем сервиса
+LOG_FORMAT = "%(asctime)s [%(levelname)s] [service:%(name)s] [trace_id:%(trace_id)s] %(message)s"
+
+logging.basicConfig(
+    filename="live_service.log",
+    format=LOG_FORMAT,
+    level=logging.INFO,
+    encoding="utf-8"
+)
+
+logger = logging.getLogger("payment-service")
+
+# 2. Пример логирования сквозной цепочки
+def process_payment(user_id: str):
+    # Генерируем сквозной trace_id для входящего запроса
+    trace_id = f"trace-{uuid.uuid4().hex[:8]}"
+    extra = {"trace_id": trace_id}
+
+    logger.info(f"Начало обработки транзакции для {user_id}", extra=extra)
+    try:
+        # Логика вашего сервиса...
+        raise TimeoutError("Upstream bank gateway connection timed out after 5.0s")
+    except Exception as e:
+        # При возникновении ERROR или CRITICAL платформа моментально сформирует инцидент!
+        logger.error(f"Сбой оплаты: {e}", extra=extra)
+```
+
+#### Поддерживаемый формат JSON (JSON Lines):
+Вы также можете писать логи в формате «одна строка — один JSON-объект»:
+```json
+{"timestamp": "2026-10-12 10:15:00", "level": "ERROR", "service": "billing-api", "trace_id": "trace-991a", "message": "PostgreSQL connection pool exhausted: 100/100 active connections"}
+```
+
+---
+
+### Способ 2. Прямая отправка через HTTP API (HTTP Ingest)
+
+Если ваш проект написан на другом языке (Node.js, Go, C#, PHP) или запущен в Docker-контейнере, отправляйте события напрямую в REST API платформы:
+
+- **Метод**: `POST http://127.0.0.1:8000/api/v1/ingest`
+- **Тело запроса (JSON)**:
+```json
+{
+  "service_name": "auth-service",
+  "log_level": "ERROR",
+  "raw_message": "Redis cluster node unavailable: connection refused on 10.0.2.14:6379",
+  "trace_id": "trace-auth-7721",
+  "user_id": "usr_42",
+  "client_ip": "192.168.1.50"
+}
+```
+
+#### Готовая функция отправки на Python (`requests`):
+```python
+import requests
+
+def send_sre_log(service: str, level: str, message: str, trace_id: str):
+    try:
+        requests.post(
+            "http://127.0.0.1:8000/api/v1/ingest",
+            json={
+                "service_name": service,
+                "log_level": level,       # INFO, WARN, ERROR, CRITICAL
+                "raw_message": message,
+                "trace_id": trace_id
+            },
+            timeout=1.0
+        )
+    except Exception:
+        pass  # Не блокируем основной бизнес-процесс при недоступности сети
+```
+
+---
+
+### Настройка пути к файлу логов
+1. **В файле `.env`**: укажите `WATCH_LOG_PATH=/путь/к/вашему/файлу.log`.
+2. **В Веб-панели (на лету)**: в верхней части панели управления введите или выберите путь к файлу — сборщик `Watcher` переключится на него мгновенно без перезапуска сервисов.
+
+---
+
 ## Тестирование и симуляция аварий
 
-1. **Генерация тестового инцидента в целевом сервисе**:
-   Отправьте команду `/test_crash` в Audio-Scriber боте или запустите симулятор:
+1. **Генерация тестового инцидента**:
+   Запустите встроенный симулятор каскадных аварий:
    ```bash
    python simulate_traffic.py
    ```
+   Или отправьте команду `/test_crash` в тестовом боте (`main.py`).
 2. **Тестирование потокового эндпоинта LLM**:
    ```bash
    python tests/test_stream_endpoint.py
