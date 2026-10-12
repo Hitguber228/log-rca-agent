@@ -1,27 +1,50 @@
-
+# Environments & Virtualenv
 .venv/
 venv/
 env/
+ENV/
+*.venv
+
+# Environment variables & secrets
 .env
 *.env
+!.env.example
 
+# Temporary SRE state files & runtime sessions
 .active_pin
+.active_bind.json
 .bind_request.json
+.pending_pins.json
+.pending_pins.tmp
+.blocked_users.json
 last_incident.json
 
+# Local databases & logs
 *.log
-app.log
 *.db
+*.sqlite
 *.sqlite3
+!datasets/production_sample.log
 
+# Python bytecode & cache
 __pycache__/
 *.py[cod]
 *$py.class
-.pytest_cache/
+*.pyd
 
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE & Editor files
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
-.active_bind.json
-.blocked_users.json
+
+# Agent workspace caches
+.agents/

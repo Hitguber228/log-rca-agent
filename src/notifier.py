@@ -1,221 +1,383 @@
 import os
 import re
 import json
-import random
 import time
-import httpx
-from typing import Dict, Any, Tuple
+import secrets
+import aiohttp
 from pathlib import Path
-from src.config import settings
+from typing import Dict, Any, Optional
 
-# Корневая директория проекта
-BASE_DIR = Path(__file__).resolve().parent.parent
+ACTIVE_CHAT_ID: Optional[str] = None
+ENV_PATH = Path(".env")
+
+
+def _find_base_dir() -> Path:
+    current = Path(__file__).resolve().parent
+    for parent in [current] + list(current.parents):
+        if (parent / ".env").exists() or (parent / "app.log").exists():
+            return parent
+    return Path.cwd()
+
+
+BASE_DIR = _find_base_dir()
 ENV_PATH = BASE_DIR / ".env"
-BIND_REQUEST_FILE = BASE_DIR / ".active_bind.json"
-BLOCK_FILE = BASE_DIR / ".blocked_users.json"
 
-ACTIVE_CHAT_ID: str = getattr(settings, "telegram_chat_id", "") or ""
-
-
-# ----------------- Работа с персистентным файлом блокировок ----------------- #
-
-def _load_block_data() -> Dict[str, Any]:
-    """Считывает актуальные данные блокировок и попыток из файла."""
-    if not BLOCK_FILE.exists():
-        return {}
-    try:
-        return json.loads(BLOCK_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _save_block_data(data: Dict[str, Any]):
-    """Записывает данные блокировок на диск."""
-    try:
-        BLOCK_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception as e:
-        print(f"[!] Ошибка сохранения файла блокировок: {e}", flush=True)
-
-
-# ----------------- Управление Telegram Chat ID ----------------- #
 
 def get_active_chat_id() -> str:
-    """Всегда читает актуальное значение напрямую из .env файла и синхронизирует память."""
+    """Возвращает актуальный Chat ID дежурного, синхронизируясь с файлом .env."""
     global ACTIVE_CHAT_ID
-    if ENV_PATH.exists():
-        try:
-            content = ENV_PATH.read_text(encoding="utf-8")
-            match = re.search(r"^TELEGRAM_CHAT_ID=(.*)$", content, flags=re.MULTILINE)
-            ACTIVE_CHAT_ID = match.group(1).strip() if match else ""
-        except Exception:
-            ACTIVE_CHAT_ID = ""
-    else:
-        ACTIVE_CHAT_ID = ""
-    return str(ACTIVE_CHAT_ID).strip()
+    targets = [ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
+    for target in targets:
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                match = re.search(r"^TELEGRAM_CHAT_ID=(.*)$", content, flags=re.MULTILINE)
+                if match:
+                    val = match.group(1).strip()
+                    ACTIVE_CHAT_ID = val
+                    return val
+            except Exception:
+                pass
+
+    if ACTIVE_CHAT_ID:
+        return ACTIVE_CHAT_ID
+
+    env_val = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    if env_val:
+        ACTIVE_CHAT_ID = env_val
+        return env_val
+
+    return ""
 
 
-def set_active_chat_id(chat_id: str):
-    """Устанавливает и сохраняет Chat ID."""
-    save_chat_id_to_env(str(chat_id).strip())
-
-
-def save_chat_id_to_env(new_chat_id: str):
-    """Персистентно записывает ID в .env и сразу обновляет рантайм-переменную."""
+def save_chat_id_to_env(chat_id: str):
     global ACTIVE_CHAT_ID
-    ACTIVE_CHAT_ID = str(new_chat_id).strip()
-
-    if not ENV_PATH.exists():
-        ENV_PATH.write_text(f"TELEGRAM_CHAT_ID={ACTIVE_CHAT_ID}\n", encoding="utf-8")
-        print(f"💾 [CONFIG] Chat ID записан в новый .env: '{ACTIVE_CHAT_ID}'", flush=True)
-        return
-
-    content = ENV_PATH.read_text(encoding="utf-8")
-    if re.search(r"^TELEGRAM_CHAT_ID=.*", content, flags=re.MULTILINE):
-        new_content = re.sub(
-            r"^TELEGRAM_CHAT_ID=.*",
-            f"TELEGRAM_CHAT_ID={ACTIVE_CHAT_ID}",
-            content,
-            flags=re.MULTILINE,
-        )
-    else:
-        new_content = content.rstrip() + f"\nTELEGRAM_CHAT_ID={ACTIVE_CHAT_ID}\n"
-
-    ENV_PATH.write_text(new_content, encoding="utf-8")
-    print(f"💾 [CONFIG] Chat ID обновлен в рантайме и .env: '{ACTIVE_CHAT_ID}'", flush=True)
-
-
-# ----------------- Заявки на привязку (Web -> Telegram) ----------------- #
-
-def create_bind_request(chat_id: str) -> str:
-    """Создает одноразовую заявку на привязку для указанного ID."""
     clean_id = str(chat_id).strip()
-    pin = f"{random.randint(1000, 9999)}"
-    data = {
-        "chat_id": clean_id,
-        "pin": pin,
-        "created_at": time.time(),
-        "expires_at": time.time() + 600,  # PIN действует 10 минут
-    }
-    try:
-        BIND_REQUEST_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"🔐 [AUTH] Создана заявка: ID={clean_id} -> PIN={pin}", flush=True)
-    except Exception as e:
-        print(f"[!] Ошибка сохранения заявки на привязку: {e}", flush=True)
-    return pin
+    ACTIVE_CHAT_ID = clean_id
+    os.environ["TELEGRAM_CHAT_ID"] = clean_id
+
+    targets = {ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"}
+    for target in targets:
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                if re.search(r"^TELEGRAM_CHAT_ID=.*$", content, flags=re.MULTILINE):
+                    new_content = re.sub(
+                        r"^TELEGRAM_CHAT_ID=.*$",
+                        f"TELEGRAM_CHAT_ID={clean_id}",
+                        content,
+                        flags=re.MULTILINE,
+                    )
+                else:
+                    new_content = content.rstrip() + f"\nTELEGRAM_CHAT_ID={clean_id}\n"
+                target.write_text(new_content, encoding="utf-8")
+            except Exception:
+                pass
 
 
-def get_bind_request_data() -> Dict[str, Any]:
-    """Возвращает текущую активную заявку на привязку."""
-    if not BIND_REQUEST_FILE.exists():
-        return {}
-    try:
-        data = json.loads(BIND_REQUEST_FILE.read_text(encoding="utf-8"))
-        if data.get("expires_at", 0) > time.time():
-            return data
-    except Exception:
-        pass
-    return {}
+def clear_chat_id_from_env():
+    global ACTIVE_CHAT_ID
+    ACTIVE_CHAT_ID = ""
+    os.environ["TELEGRAM_CHAT_ID"] = ""
+
+    targets = {ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"}
+    for target in targets:
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                new_content = re.sub(
+                    r"^TELEGRAM_CHAT_ID=.*$",
+                    "TELEGRAM_CHAT_ID=",
+                    content,
+                    flags=re.MULTILINE,
+                )
+                target.write_text(new_content, encoding="utf-8")
+            except Exception:
+                pass
 
 
-# ----------------- Валидация и проверка PIN (/bind) ----------------- #
+def get_active_bot_token() -> str:
+    """Возвращает актуальный токен бота из .env или переменных окружения."""
+    targets = [ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
+    for target in targets:
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                match = re.search(r"^TELEGRAM_BOT_TOKEN=(.*)$", content, flags=re.MULTILINE)
+                if match:
+                    val = match.group(1).strip()
+                    if val:
+                        return val
+            except Exception:
+                pass
+    return os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 
-def verify_telegram_binding(incoming_chat_id: str, entered_pin: str) -> Tuple[bool, str]:
-    """
-    Строгая верификация:
-    1. Проверка персистентного бана на 5 минут (хранится на диске).
-    2. Проверка наличия активной заявки из веб-консоли.
-    3. Проверка совпадения ID отправителя и ID из заявки.
-    4. Проверка PIN-кода.
-    """
-    incoming_chat_id = str(incoming_chat_id).strip()
-    entered_pin = str(entered_pin).strip()
-    now = time.time()
 
-    # 1. Проверяем блокировку на диске
-    blocks = _load_block_data()
-    user_state = blocks.get(incoming_chat_id, {"attempts": 0, "blocked_until": 0.0})
+def get_watched_log_path() -> Path:
+    val = os.getenv("WATCH_LOG_PATH", "").strip()
+    targets = [ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
+    for target in targets:
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                match = re.search(r"^WATCH_LOG_PATH=(.*)$", content, flags=re.MULTILINE)
+                if match and match.group(1).strip():
+                    val = match.group(1).strip()
+                    break
+            except Exception:
+                pass
+    if not val:
+        val = str(BASE_DIR / "app.log")
+    return Path(val)
 
-    if user_state.get("blocked_until", 0.0) > now:
-        left = int(user_state["blocked_until"] - now)
-        return False, f"⛔ Доступ временно заблокирован из-за перебора паролей! Подождите {left} сек."
 
-    # 2. Проверяем наличие активной заявки из веба
-    req = get_bind_request_data()
-    if not req:
-        return False, "⚠️ Нет активной заявки из веб-интерфейса. Сначала укажите свой ID в панели."
+def save_watched_log_path(new_path: str):
+    clean_val = str(new_path).strip()
+    os.environ["WATCH_LOG_PATH"] = clean_val
+    targets = {ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"}
+    for target in targets:
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                if re.search(r"^WATCH_LOG_PATH=.*$", content, flags=re.MULTILINE):
+                    new_content = re.sub(
+                        r"^WATCH_LOG_PATH=.*$",
+                        f"WATCH_LOG_PATH={clean_val}",
+                        content,
+                        flags=re.MULTILINE,
+                    )
+                else:
+                    new_content = content.rstrip() + f"\nWATCH_LOG_PATH={clean_val}\n"
+                target.write_text(new_content, encoding="utf-8")
+            except Exception:
+                pass
 
-    target_id = str(req.get("chat_id", "")).strip()
-    expected_pin = str(req.get("pin", "")).strip()
 
-    # 3. Проверка соответствия Telegram ID
-    if incoming_chat_id != target_id:
-        return (
-            False,
-            f"🚫 Ошибка безопасности! Заявка в вебе создана для ID <code>{target_id}</code>, "
-            f"а вы отправляете команду с аккаунта <code>{incoming_chat_id}</code>.",
-        )
+import html
 
-    # 4. Проверка PIN-кода
-    if entered_pin == expected_pin:
-        # Успешная авторизация — сбрасываем счетчик ошибок и сжигаем PIN
-        blocks.pop(incoming_chat_id, None)
-        _save_block_data(blocks)
 
-        save_chat_id_to_env(incoming_chat_id)
+def format_incident_alert(incident: Dict[str, Any], rca_summary: str) -> str:
+    service = incident.get("first_affected_service", "Unknown")
+    trace_id = incident.get("trace_id", "N/A")
+    raw_time = incident.get("incident_start", "Now")
+    inc_id = incident.get("incident_id", "New")
+
+    # Форматируем время в HH:MM:SS
+    time_display = raw_time.split(" ")[-1] if " " in str(raw_time) else str(raw_time)
+
+    # Достаем первопричину из сырой ошибки инцидента
+    root_info = incident.get("root_cause_candidate", {})
+    raw_error = root_info.get("raw_message", "")
+    clean_error = raw_error.replace("CRITICAL:", "").replace("ERROR:", "").strip()
+    if len(clean_error) > 160:
+        clean_error = clean_error[:157] + "..."
+
+    # Экранируем спецсимволы HTML для безопасного парсинга в Telegram
+    service_esc = html.escape(str(service))
+    trace_id_esc = html.escape(str(trace_id))
+    inc_id_esc = html.escape(str(inc_id))
+    clean_error_esc = html.escape(str(clean_error))
+    time_display_esc = html.escape(str(time_display))
+
+    # Собираем уникальный каскад сервисов без повторов и без "system"
+    cascade_flow = incident.get("cascade_flow", [])
+    seen = set()
+    chain = []
+    for step in cascade_flow:
+        s_name = str(step.get("service", "")).strip()
+        if s_name and s_name not in seen and s_name.lower() != "system":
+            seen.add(s_name)
+            chain.append(f"<code>{html.escape(s_name)}</code>")
+    cascade_str = " -&gt; ".join(chain) if chain else f"<code>{service_esc}</code>"
+
+    # Определяем точечное действие по ошибке
+    err_lower = clean_error.lower()
+    if "cuda" in err_lower or "memory" in err_lower:
+        action = "Освободить VRAM / проверить лимиты воркера."
+    elif "timeout" in err_lower:
+        action = "Проверить доступность внешнего API / шлюза."
+    elif "pool" in err_lower or "connection" in err_lower:
+        action = "Перезапустить пул соединений / увеличить max_connections."
+    else:
+        action = "Проверить логи узла и перезапустить сервис."
+    action_esc = html.escape(action)
+
+    return (
+        f"<b>[CRITICAL] SRE INCIDENT #{inc_id_esc}</b>\n"
+        f"Time: {time_display_esc} | Service: <code>{service_esc}</code> | Trace: <code>{trace_id_esc}</code>\n\n"
+        f"<b>Root Cause:</b>\n"
+        f"<code>{clean_error_esc}</code>\n\n"
+        f"<b>Cascade:</b> {cascade_str}\n\n"
+        f"<b>Action:</b> {action_esc}\n\n"
+        f"Dashboard: http://127.0.0.1:8000"
+    )
+
+
+
+async def send_telegram_alert(incident: Dict[str, Any], rca_summary: str) -> bool:
+    chat_id = get_active_chat_id()
+    if not chat_id:
+        print("[!] Оповещение отменено: Telegram chat_id не привязан.")
+        return False
+
+    bot_token = get_active_bot_token()
+    if not bot_token:
         try:
-            BIND_REQUEST_FILE.unlink(missing_ok=True)
+            from src.config import settings
+            bot_token = getattr(settings, "telegram_bot_token", "").strip()
         except Exception:
             pass
 
-        return True, "✅ Верификация успешно завершена! Ваш Telegram ID подтверждён и назначен дежурным."
-
-    # 5. Обработка неверного ввода
-    attempts = user_state.get("attempts", 0) + 1
-    if attempts >= 3:
-        user_state["blocked_until"] = now + 300  # Бан ровно на 5 минут (300 секунд)
-        user_state["attempts"] = 0
-        blocks[incoming_chat_id] = user_state
-        _save_block_data(blocks)
-        return False, "🚫 3 неверных ввода. Доступ заблокирован ровно на 5 минут!"
-
-    user_state["attempts"] = attempts
-    blocks[incoming_chat_id] = user_state
-    _save_block_data(blocks)
-    remains = 3 - attempts
-    return False, f"❌ Неверный PIN-код. Осталось попыток: {remains}."
-
-
-# ----------------- Отправка оповещений с жесткой защитой ----------------- #
-
-async def send_telegram_alert(incident: Dict[str, Any], ai_summary: str) -> bool:
-    """Строгая отправка: блокируется на корню, если статус NOT BOUND."""
-    target_id = get_active_chat_id()
-    token = getattr(settings, "telegram_bot_token", None)
-
-    if not target_id:
-        print("⛔ [BLOCKED] Попытка отправки алерта отклонена: Telegram дежурного не привязан (NOT BOUND).", flush=True)
+    if not bot_token:
+        print("[!] Оповещение отменено: TELEGRAM_BOT_TOKEN не задан.")
         return False
 
-    if not token:
-        print("⛔ [BLOCKED] Попытка отправки алерта отклонена: отсутствует TELEGRAM_BOT_TOKEN.", flush=True)
-        return False
-
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    message_text = format_incident_alert(incident, rca_summary)
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
-        "chat_id": target_id,
-        "text": f"🚨 *ИНЦИДЕНТ: {incident.get('first_affected_service', 'service')}*\n"
-                f"Trace ID: `{incident.get('trace_id', 'unknown')}`\n\n"
-                f"{ai_summary}",
-        "parse_mode": "Markdown",
+        "chat_id": chat_id,
+        "text": message_text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
     }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(url, json=payload)
-            if resp.status_code == 200:
-                return True
-            print(f"[!] Telegram API вернул код {resp.status_code}: {resp.text}", flush=True)
-            return False
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=10) as resp:
+                if resp.status == 200:
+                    return True
+                else:
+                    body = await resp.text()
+                    print(f"[!] Сбой отправки Telegram алерта (HTTP {resp.status}): {body}")
+                    return False
     except Exception as e:
-        print(f"[!] Ошибка сетевого запроса к Telegram API: {e}", flush=True)
+        print(f"[!] Сетевая ошибка при отправке Telegram алерта: {e}")
         return False
+
+# ----------------- Управление 2FA PIN-кодами и привязкой Telegram ----------------- #
+
+PIN_STORAGE_PATH = BASE_DIR / ".pending_pins.json"
+PIN_EXPIRY_SECONDS = 300  # Срок действия PIN-кода — 5 минут
+MAX_PIN_ATTEMPTS = 3      # Защита от перебора — максимум 3 попытки
+
+
+def _load_pending_pins() -> Dict[str, Dict[str, Any]]:
+    """Загружает активные PIN-коды из файлового хранилища, удаляя устаревшие."""
+    now = time.time()
+    valid_pins: Dict[str, Dict[str, Any]] = {}
+    if PIN_STORAGE_PATH.exists():
+        try:
+            content = PIN_STORAGE_PATH.read_text(encoding="utf-8")
+            raw_pins = json.loads(content)
+            if isinstance(raw_pins, dict):
+                for p, meta in raw_pins.items():
+                    if isinstance(meta, dict):
+                        created = float(meta.get("created_at", 0))
+                        if now - created < PIN_EXPIRY_SECONDS:
+                            valid_pins[str(p)] = meta
+        except Exception:
+            valid_pins = {}
+    return valid_pins
+
+
+def _save_pending_pins(pins: Dict[str, Dict[str, Any]]) -> None:
+    """Атомарно сохраняет активные PIN-коды для синхронизации между процессами."""
+    try:
+        temp_file = PIN_STORAGE_PATH.with_suffix(".tmp")
+        temp_file.write_text(json.dumps(pins, ensure_ascii=False, indent=2), encoding="utf-8")
+        temp_file.replace(PIN_STORAGE_PATH)
+    except Exception:
+        try:
+            PIN_STORAGE_PATH.write_text(json.dumps(pins, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
+
+def create_pending_pin(chat_id: str) -> str:
+    """
+    Генерирует криптографически стойкий 4-значный PIN-код и сохраняет его
+    в общем хранилище с привязкой к указанному Chat ID.
+    """
+    clean_chat_id = str(chat_id).strip()
+    pins = _load_pending_pins()
+
+    # Сбрасываем старые активные коды для этого же chat_id
+    pins = {p: meta for p, meta in pins.items() if str(meta.get("chat_id", "")).strip() != clean_chat_id}
+
+    # Генерируем случайный 4-значный PIN через модуль secrets
+    pin = f"{secrets.randbelow(9000) + 1000}"
+    pins[pin] = {
+        "chat_id": clean_chat_id,
+        "created_at": time.time(),
+        "attempts": 0,
+    }
+    _save_pending_pins(pins)
+    return pin
+
+
+def get_active_pending_pin() -> Optional[str]:
+    """Возвращает последний активный PIN для отображения в веб-интерфейсе."""
+    pins = _load_pending_pins()
+    if not pins:
+        return None
+    sorted_items = sorted(pins.items(), key=lambda x: x[1].get("created_at", 0), reverse=True)
+    return sorted_items[0][0]
+
+
+def clear_pending_pins() -> None:
+    """Очищает все ожидающие подтверждения PIN-коды."""
+    _save_pending_pins({})
+
+
+def verify_telegram_binding(
+    chat_id: Optional[str] = None,
+    pin: Optional[str] = None,
+    incoming_chat_id: Optional[str] = None,
+    entered_pin: Optional[str] = None,
+) -> bool:
+    """
+    Безопасная проверка PIN-кода привязки:
+    1. Ищет активный PIN в общем файловом хранилище между процессами.
+    2. Проверяет срок действия (TTL 300 сек).
+    3. Проверяет лимит неверных попыток ввода (максимум 3).
+    4. Строго проверяет совпадение Chat ID.
+    5. При успешной проверке сохраняет Chat ID в .env и мгновенно уничтожает PIN (одноразовый токен).
+    6. При несовпадении или ошибке возвращает False.
+    """
+    clean_chat_id = (str(chat_id) if chat_id is not None else str(incoming_chat_id or "")).strip()
+    clean_pin = (str(pin) if pin is not None else str(entered_pin or "")).strip()
+
+    if not clean_pin or not clean_chat_id:
+        return False
+
+    pins = _load_pending_pins()
+    record = pins.get(clean_pin)
+
+    if not record:
+        return False
+
+    now = time.time()
+    created_at = float(record.get("created_at", 0))
+    if now - created_at >= PIN_EXPIRY_SECONDS:
+        pins.pop(clean_pin, None)
+        _save_pending_pins(pins)
+        return False
+
+    # Защита от перебора: увеличиваем счётчик попыток
+    attempts = int(record.get("attempts", 0)) + 1
+    record["attempts"] = attempts
+
+    expected_cid = str(record.get("chat_id", "")).strip()
+    if expected_cid and expected_cid != clean_chat_id:
+        if attempts >= MAX_PIN_ATTEMPTS:
+            pins.pop(clean_pin, None)  # Сжигаем скомпрометированный PIN
+        else:
+            pins[clean_pin] = record
+        _save_pending_pins(pins)
+        return False
+
+    # Успешная авторизация: связываем chat_id и сжигаем одноразовый PIN
+    save_chat_id_to_env(clean_chat_id)
+    pins.pop(clean_pin, None)
+    _save_pending_pins(pins)
+    return True
