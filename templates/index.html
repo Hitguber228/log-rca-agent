@@ -988,40 +988,9 @@
     <div id="assistantChatContainer" class="flex-1 overflow-y-auto overflow-x-auto p-4 md:p-6 min-h-0 relative overscroll-contain" onscroll="handleAssistantScroll(this)">
       <div id="assistantChatInnerWrapper" class="max-w-5xl mx-auto flex flex-col min-h-full w-full min-w-0 transition-all duration-200">
 
-        <!-- Лаконичные быстрые сценарии -->
-        <div id="assistantHeroCard" class="my-auto py-8 px-4 text-center space-y-4">
-          <div class="inline-flex p-3 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-inner">
-            <i data-lucide="bot" class="w-7 h-7"></i>
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-slate-100">SRE AI-Ассистент готов к расследованию</h3>
-            <p class="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Задайте вопрос по текущему сбою или воспользуйтесь быстрыми сценариями ниже:
-            </p>
-          </div>
-
-          <div class="flex flex-wrap items-center justify-center gap-2 max-w-xl mx-auto pt-1">
-            <button onclick="sendAssistantQuickPrompt('Как устранить текущую аварию?')"
-              class="btn-interactive px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition cursor-pointer flex items-center gap-1.5">
-              <i data-lucide="wrench" class="w-3.5 h-3.5 text-amber-400"></i>
-              <span>План устранения сбоя</span>
-            </button>
-            <button onclick="sendAssistantQuickPrompt('Сгенерируй bash-скрипт восстановления сервиса')"
-              class="btn-interactive px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition cursor-pointer flex items-center gap-1.5">
-              <i data-lucide="terminal" class="w-3.5 h-3.5 text-emerald-400"></i>
-              <span>Runbook / Bash-скрипт</span>
-            </button>
-            <button onclick="sendAssistantQuickPrompt('Покажи SQL-запросы для диагностики PostgreSQL')"
-              class="btn-interactive px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition cursor-pointer flex items-center gap-1.5">
-              <i data-lucide="database" class="w-3.5 h-3.5 text-sky-400"></i>
-              <span>Диагностика PostgreSQL</span>
-            </button>
-            <button onclick="sendAssistantQuickPrompt('Сформируй Post-Mortem отчёт по аварии')"
-              class="btn-interactive px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs text-slate-300 transition cursor-pointer flex items-center gap-1.5">
-              <i data-lucide="file-text" class="w-3.5 h-3.5 text-purple-400"></i>
-              <span>Post-Mortem отчёт</span>
-            </button>
-          </div>
+        <!-- Чистый минималистичный экран: просто текст "AI-ассистент" -->
+        <div id="assistantHeroCard" class="my-auto py-16 px-4 text-center select-none">
+          <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-slate-500 font-sans">AI-ассистент</h2>
         </div>
 
         <!-- Лента сообщений -->
@@ -1053,7 +1022,7 @@
         <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono px-1">
           <span class="flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span id="assistantActiveModelNotice">Модель: Groq Llama 3.3 70B</span>
+            <span id="assistantActiveModelNotice">Модель: Определение...</span>
           </span>
           <span class="flex items-center gap-1 text-slate-400">
             <i data-lucide="shield-check" class="w-3 h-3 text-emerald-400"></i>
@@ -2335,6 +2304,7 @@
       const dot = document.getElementById('llmStatusDot');
       const text = document.getElementById('llmStatusText');
       const badge = document.getElementById('llmStatusBadge');
+      const assistantNotice = document.getElementById('assistantActiveModelNotice');
 
       try {
         const res = await fetch('/api/llm/status');
@@ -2347,6 +2317,11 @@
             text.className = 'text-emerald-400 font-medium text-[11px] truncate max-w-[130px]';
           }
           if (badge) badge.title = `LLM подключена: ${data.model} (${data.provider || 'local'})\nНажмите для настройки`;
+          if (assistantNotice) {
+            const prov = data.provider ? data.provider.replace('Cloud', '').replace('Local', '').trim() : '';
+            const m = data.model || 'Готова';
+            assistantNotice.textContent = prov ? `Модель: ${prov} (${m})` : `Модель: ${m}`;
+          }
         } else {
           if (dot) dot.className = 'w-2 h-2 rounded-full bg-amber-400 shadow-sm shadow-amber-500/50';
           if (text) {
@@ -2354,6 +2329,9 @@
             text.className = 'text-amber-300 font-medium text-[11px]';
           }
           if (badge) badge.title = 'LLM не подключена (работает встроенный SRE-движок)\nНажмите для настройки';
+          if (assistantNotice) {
+            assistantNotice.textContent = 'Модель: Встроенный SRE-движок (Fallback)';
+          }
         }
       } catch (err) {
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-rose-400 shadow-sm shadow-rose-500/50';
@@ -2362,6 +2340,9 @@
           text.className = 'text-rose-400 font-medium text-[11px]';
         }
         if (badge) badge.title = 'Ошибка соединения с сервером API';
+        if (assistantNotice) {
+          assistantNotice.textContent = 'Модель: Офлайн';
+        }
       }
     }
 
@@ -2402,6 +2383,7 @@
         if (astBtn) astBtn.className = activeClass;
         initAssistantContextOptions();
         initAssistantChatWidth();
+        checkLLMHealth();
         setTimeout(() => { if (typeof scrollAssistantToBottom === 'function') scrollAssistantToBottom(false); }, 60);
         document.getElementById('assistantInput')?.focus();
       }
