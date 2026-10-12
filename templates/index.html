@@ -432,7 +432,7 @@
         </div>
 
         <!-- Подполоса вкладок и действий инцидента -->
-        <div class="px-5 py-2 border-b border-slate-800 flex items-center justify-between bg-slate-900/30 shrink-0 flex-wrap gap-2">
+        <div class="px-5 py-2 border-b border-slate-800 flex items-center justify-between bg-slate-900/30 shrink-0 gap-2">
           <div class="flex items-center gap-1 p-0.5 rounded-lg bg-slate-950 border border-slate-800">
             <button id="detailTabRcaBtn" onclick="switchDetailTab('rca')"
               class="btn-interactive px-3 py-1 rounded-md text-xs font-semibold bg-indigo-600 text-white transition flex items-center gap-1.5 cursor-pointer">
@@ -467,13 +467,6 @@
               <i data-lucide="copy" class="w-3.5 h-3.5"></i>
               <span>Копировать</span>
             </button>
-            <div id="rcaLiveSpinnerBadge" class="hidden items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium shadow-sm">
-              <svg class="w-3.5 h-3.5 animate-spin text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>Идёт анализ...</span>
-            </div>
             <button id="runLlmBtn" onclick="requestRcaAnalysis(true)"
               class="btn-interactive px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer">
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
@@ -4958,39 +4951,25 @@
 
     function updateRcaRunButtonState() {
       const btn = document.getElementById('runLlmBtn');
-      const liveBadge = document.getElementById('rcaLiveSpinnerBadge');
       if (!btn) return;
 
       if (isRcaStreaming) {
         btn.disabled = true;
-        btn.classList.add('opacity-70', 'cursor-not-allowed');
-        btn.classList.remove('cursor-pointer', 'hover:bg-indigo-500');
 
         if (selectedIncident && String(selectedIncident.incident_id) === String(activeRcaStreamIncidentId)) {
-          btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin shrink-0 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Анализируется...</span>';
+          btn.className = 'btn-interactive px-2.5 py-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 text-xs font-medium transition flex items-center gap-1.5 cursor-not-allowed';
+          btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Идёт анализ...</span>';
           btn.title = `Идёт генерация отчёта для инцидента #${activeRcaStreamIncidentId}...`;
-          if (liveBadge) {
-            liveBadge.classList.remove('hidden');
-            liveBadge.classList.add('flex');
-          }
         } else {
+          btn.className = 'btn-interactive px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-medium transition flex items-center gap-1.5 cursor-not-allowed';
           btn.innerHTML = `<i data-lucide="lock" class="w-3.5 h-3.5 text-amber-300"></i><span>Занят (#${activeRcaStreamIncidentId || '...'})</span>`;
           btn.title = `Дождитесь завершения анализа инцидента #${activeRcaStreamIncidentId}, чтобы не перегружать модель`;
-          if (liveBadge) {
-            liveBadge.classList.add('hidden');
-            liveBadge.classList.remove('flex');
-          }
         }
       } else {
         btn.disabled = false;
-        btn.classList.remove('opacity-70', 'cursor-not-allowed');
-        btn.classList.add('cursor-pointer', 'hover:bg-indigo-500');
+        btn.className = 'btn-interactive px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer';
         btn.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Анализ</span>';
         btn.title = 'Запустить анализ инцидента через LLM';
-        if (liveBadge) {
-          liveBadge.classList.add('hidden');
-          liveBadge.classList.remove('flex');
-        }
       }
       safeUpdateIcons();
     }
@@ -5122,11 +5101,21 @@
       updateRcaRunButtonState();
       renderIncidentTabs();
 
-      // Если пользователь прямо сейчас на этом инциденте, сразу показываем лоадер
+      // Если пользователь прямо сейчас на этом инциденте, сразу показываем лоадер и скрываем вторичные кнопки
       if (selectedIncident && String(selectedIncident.incident_id) === targetIncidentId) {
         const ph = document.getElementById('reportPlaceholder');
         const cnt = document.getElementById('reportContent');
+        const tgBtn = document.getElementById('shareTgBtn');
+        const copyBtn = document.getElementById('copyReportBtn');
+        const pdfBtn = document.getElementById('exportPdfBtn');
+        const delBtn = document.getElementById('deleteReportBtn');
+        const tag = document.getElementById('reportCachedTag');
         if (ph) ph.classList.add('hidden');
+        if (tag) tag.classList.add('hidden');
+        if (tgBtn) tgBtn.classList.add('hidden');
+        if (copyBtn) copyBtn.classList.add('hidden');
+        if (pdfBtn) pdfBtn.classList.add('hidden');
+        if (delBtn) delBtn.classList.add('hidden');
         if (cnt) {
           cnt.classList.remove('hidden');
           cnt.innerHTML = '<div class="flex items-center gap-2.5 text-indigo-300 p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-sm"><svg class="w-4 h-4 animate-spin shrink-0 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Инициализация нейросети и подготовка стриминга...</span></div>';
