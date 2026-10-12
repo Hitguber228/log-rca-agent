@@ -25,15 +25,15 @@ def run_simulation():
 
     # 2. Первопричина (Root Cause): падение пула БД
     log("CRITICAL", "postgres-cluster", trace, "Fatal: remaining connection slots are reserved for non-replication superuser connections (max_connections=100 reached)")
-    time.sleep(1.5)
+    time.sleep(0.35)
 
     # 3. Каскад: падает auth-service
     log("ERROR", "auth-service", trace, "Timeout acquiring connection from pool after 5000ms. Aborting session verification.")
-    time.sleep(1.5)
+    time.sleep(0.35)
 
     # 4. Каскад: падает billing-api
     log("ERROR", "billing-api", trace, "500 Internal Server Error: Failed to validate bearer token from auth-service")
-    time.sleep(1.5)
+    time.sleep(0.35)
 
     # 5. Каскад: клиент получает 504
     log("ERROR", "api-gateway", trace, "Upstream billing-api failed response with status 504 Gateway Timeout")

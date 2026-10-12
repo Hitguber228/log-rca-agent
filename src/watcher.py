@@ -39,15 +39,33 @@ def notify_api_broadcast(event_type: str, data: Dict[str, Any]):
 
 
 def get_alert_rules():
-    """Динамически считывает актуальные правила алертинга из окружения / .env."""
-    min_level = os.getenv("ALERT_MIN_LEVEL", getattr(settings, "alert_min_level", "ERROR")).upper()
-    cascade_only = os.getenv("ALERT_CASCADE_ONLY", str(getattr(settings, "alert_cascade_only", False))).lower() in ("true", "1", "yes")
+    """Динамически считывает актуальные правила алертинга из файла .env и окружения."""
+    env_vars = {}
+    base_dir = Path(__file__).resolve().parent.parent
+    targets = [Path(".env"), Path.cwd() / ".env", base_dir / ".env"]
+    for target in targets:
+        if target.exists():
+            try:
+                for line in target.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        env_vars[k.strip().upper()] = v.strip().strip("'\"")
+                break
+            except Exception:
+                pass
+
+    min_level = (env_vars.get("ALERT_MIN_LEVEL") or os.getenv("ALERT_MIN_LEVEL") or getattr(settings, "alert_min_level", "ERROR")).upper()
+    cascade_only_str = env_vars.get("ALERT_CASCADE_ONLY") or os.getenv("ALERT_CASCADE_ONLY") or str(getattr(settings, "alert_cascade_only", False))
+    cascade_only = cascade_only_str.lower() in ("true", "1", "yes")
+
     try:
-        min_errors = int(os.getenv("ALERT_MIN_ERRORS", getattr(settings, "alert_min_errors", 1)))
+        min_errors = int(env_vars.get("ALERT_MIN_ERRORS") or os.getenv("ALERT_MIN_ERRORS") or getattr(settings, "alert_min_errors", 1))
     except Exception:
         min_errors = 1
+
     try:
-        debounce_sec = float(os.getenv("ALERT_DEBOUNCE_SECONDS", getattr(settings, "alert_debounce_seconds", 1.5)))
+        debounce_sec = float(env_vars.get("ALERT_DEBOUNCE_SECONDS") or os.getenv("ALERT_DEBOUNCE_SECONDS") or getattr(settings, "alert_debounce_seconds", 1.5))
     except Exception:
         debounce_sec = 1.5
 

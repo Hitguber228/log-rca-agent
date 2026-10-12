@@ -1214,18 +1214,79 @@
           </div>
 
           <!-- Выбор модели -->
-          <div class="space-y-1.5">
-            <label for="settingsLlmModelSelect" class="block text-xs font-semibold text-slate-200">Модель:</label>
-            <select id="settingsLlmModelSelect" onchange="onModelSelectChange()"
-              class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500">
-              <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile (Рекомендуется — точный SRE RCA)</option>
-              <option value="llama-3.1-8b-instant">llama-3.1-8b-instant (Максимальная скорость ответа)</option>
-              <option value="mixtral-8x7b-32768">mixtral-8x7b-32768 (Большое окно контекста 32k)</option>
-              <option value="qwen2.5:1.5b">qwen2.5:1.5b (Для локального Ollama)</option>
-              <option value="custom">Указать вручную...</option>
-            </select>
-            <input type="text" id="settingsCustomModelInput" placeholder="Введите название модели"
-              class="hidden w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono mt-1.5 focus:outline-none focus:border-indigo-500">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-semibold text-slate-200">Выбор модели для RCA-анализа:</label>
+              <span id="selectedModelBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">llama-3.3-70b-versatile</span>
+            </div>
+            
+            <input type="hidden" id="settingsLlmModelSelect" value="llama-3.3-70b-versatile">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="modelCardsContainer">
+              <!-- Card 1: Llama 3.3 70B -->
+              <div onclick="chooseLlmModel('llama-3.3-70b-versatile')" data-model-id="llama-3.3-70b-versatile"
+                class="model-option-card btn-interactive p-2.5 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 cursor-pointer transition text-left space-y-1 shadow-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
+                    <span>Llama 3.3 70B</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">RCA (Топ)</span>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-snug">Флагманский глубокий анализ причин сбоя и генерация Runbook</p>
+              </div>
+
+              <!-- Card 2: Llama 3.1 8B -->
+              <div onclick="chooseLlmModel('llama-3.1-8b-instant')" data-model-id="llama-3.1-8b-instant"
+                class="model-option-card btn-interactive p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>Llama 3.1 8B Instant</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">~150мс</span>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-snug">Сверхбыстрый отклик с минимальной задержкой инференса</p>
+              </div>
+
+              <!-- Card 3: Mixtral 8x7B -->
+              <div onclick="chooseLlmModel('mixtral-8x7b-32768')" data-model-id="mixtral-8x7b-32768"
+                class="model-option-card btn-interactive p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-sky-400"></i>
+                    <span>Mixtral 8x7B</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">32k ctx</span>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-snug">Большое окно контекста для массивных логов и стектрейсов</p>
+              </div>
+
+              <!-- Card 4: Qwen 2.5 1.5B (Ollama) -->
+              <div onclick="chooseLlmModel('qwen2.5:1.5b')" data-model-id="qwen2.5:1.5b"
+                class="model-option-card btn-interactive p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="server" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span>Qwen 2.5 1.5B</span>
+                  </span>
+                  <span class="text-[9px] font-mono px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Локальный</span>
+                </div>
+                <p class="text-[10px] text-slate-400 leading-snug">Локальный запуск на собственном ПК через Ollama без сети</p>
+              </div>
+            </div>
+
+            <!-- Custom Model Button / Input -->
+            <div class="pt-1">
+              <button type="button" onclick="chooseLlmModel('custom')" id="btnCustomModelToggle"
+                class="btn-interactive text-[11px] text-slate-400 hover:text-indigo-300 font-mono flex items-center gap-1 transition cursor-pointer">
+                <i data-lucide="terminal" class="w-3 h-3"></i>
+                <span>Указать другую модель вручную...</span>
+              </button>
+              <input type="text" id="settingsCustomModelInput" placeholder="Например: deepseek-r1:8b или llama3-groq-70b8192-tool-use-preview"
+                oninput="onCustomModelInputChange(this.value)"
+                class="hidden w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-100 font-mono mt-2 focus:outline-none focus:border-indigo-500">
+            </div>
           </div>
 
           <!-- Температура инференса -->
@@ -1334,31 +1395,104 @@
           </div>
 
           <!-- 3. Порог количества ошибок -->
-          <div class="space-y-1.5">
-            <label for="settingsAlertMinErrorsSelect" class="block text-xs font-semibold text-slate-200">Порог количества ошибок для алерта:</label>
-            <select id="settingsAlertMinErrorsSelect"
-              class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500">
-              <option value="1">1 ошибка (Мгновенное срабатывание при первом сбое)</option>
-              <option value="3">3 ошибки (Фильтрация единичных сетевых флапов / спайков)</option>
-              <option value="5">5 ошибок (Высокая нагрузка / устойчивые аварии)</option>
-              <option value="10">10 ошибок (Только массивные деградации сервисов)</option>
-            </select>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-semibold text-slate-200">Порог ошибок для отправки алерта:</label>
+              <span id="selectedMinErrorsBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">1 ошибка</span>
+            </div>
+
+            <input type="hidden" id="settingsAlertMinErrorsSelect" value="1">
+
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-1.5" id="minErrorsPillsContainer">
+              <button type="button" onclick="chooseAlertMinErrors(1)" data-errors-val="1"
+                class="error-threshold-pill btn-interactive p-2 rounded-xl border border-indigo-500 bg-indigo-500/15 text-indigo-200 hover:border-indigo-400 text-left transition cursor-pointer space-y-0.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold font-mono">1</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                </div>
+                <div class="text-[10px] font-semibold text-slate-200">Сразу</div>
+                <div class="text-[9px] text-slate-400 leading-tight">Первый сбой</div>
+              </button>
+
+              <button type="button" onclick="chooseAlertMinErrors(2)" data-errors-val="2"
+                class="error-threshold-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300 text-left transition cursor-pointer space-y-0.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold font-mono">2</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                </div>
+                <div class="text-[10px] font-semibold text-slate-300">2 ошибки</div>
+                <div class="text-[9px] text-slate-400 leading-tight">Минимум пара</div>
+              </button>
+
+              <button type="button" onclick="chooseAlertMinErrors(3)" data-errors-val="3"
+                class="error-threshold-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300 text-left transition cursor-pointer space-y-0.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold font-mono">3</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                </div>
+                <div class="text-[10px] font-semibold text-slate-300">3 ошибки</div>
+                <div class="text-[9px] text-slate-400 leading-tight">Без спайков</div>
+              </button>
+
+              <button type="button" onclick="chooseAlertMinErrors(5)" data-errors-val="5"
+                class="error-threshold-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300 text-left transition cursor-pointer space-y-0.5">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold font-mono">5</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                </div>
+                <div class="text-[10px] font-semibold text-slate-300">5 ошибок</div>
+                <div class="text-[9px] text-slate-400 leading-tight">Серия сбоев</div>
+              </button>
+
+              <button type="button" onclick="chooseAlertMinErrors(10)" data-errors-val="10"
+                class="error-threshold-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300 text-left transition cursor-pointer space-y-0.5 col-span-2 sm:col-span-1">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold font-mono">10</span>
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                </div>
+                <div class="text-[10px] font-semibold text-slate-300">10 ошибок</div>
+                <div class="text-[9px] text-slate-400 leading-tight">Блэкаут</div>
+              </button>
+            </div>
           </div>
 
           <!-- 4. Окно дебаунса и группировки -->
-          <div class="space-y-1.5 bg-slate-950/40 p-3 rounded-xl border border-slate-800">
+          <div class="space-y-2 bg-slate-950/40 p-3 rounded-xl border border-slate-800">
             <div class="flex items-center justify-between">
-              <label for="settingsAlertDebounceSelect" class="text-xs font-semibold text-slate-200">Окно группировки каскада (Debounce):</label>
+              <label class="text-xs font-semibold text-slate-200">Окно группировки каскада (Debounce):</label>
+              <span id="selectedDebounceBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/25">1.5 сек</span>
             </div>
-            <select id="settingsAlertDebounceSelect"
-              class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500">
-              <option value="1.0">1.0 сек — Мгновенная реакция</option>
-              <option value="1.5">1.5 сек — Оптимальный баланс (рекомендуется)</option>
-              <option value="2.0">2.0 сек — Для асинхронных очередей задач</option>
-              <option value="3.0">3.0 сек — Для распределенных каскадных цепочек</option>
-            </select>
-            <p class="text-[10px] text-slate-400 leading-tight">
-              Интервал ожидания последующих ошибок перед фиксацией полного дерева инцидента и запуском анализа.
+
+            <input type="hidden" id="settingsAlertDebounceSelect" value="1.5">
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5" id="debouncePillsContainer">
+              <button type="button" onclick="chooseAlertDebounce(0.5)" data-debounce-val="0.5"
+                class="debounce-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer space-y-0.5">
+                <div class="text-xs font-bold font-mono text-slate-200">0.5 сек</div>
+                <div class="text-[10px] text-slate-400">Ультрабыстрый</div>
+              </button>
+
+              <button type="button" onclick="chooseAlertDebounce(1.0)" data-debounce-val="1.0"
+                class="debounce-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer space-y-0.5">
+                <div class="text-xs font-bold font-mono text-slate-200">1.0 сек</div>
+                <div class="text-[10px] text-slate-400">Мгновенный</div>
+              </button>
+
+              <button type="button" onclick="chooseAlertDebounce(1.5)" data-debounce-val="1.5"
+                class="debounce-pill btn-interactive p-2 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 text-left transition cursor-pointer space-y-0.5">
+                <div class="text-xs font-bold font-mono text-indigo-200">1.5 сек</div>
+                <div class="text-[10px] text-indigo-300/80">Оптимально</div>
+              </button>
+
+              <button type="button" onclick="chooseAlertDebounce(3.0)" data-debounce-val="3.0"
+                class="debounce-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer space-y-0.5">
+                <div class="text-xs font-bold font-mono text-slate-200">3.0 сек</div>
+                <div class="text-[10px] text-slate-400">Длинные цепи</div>
+              </button>
+            </div>
+
+            <p class="text-[10px] text-slate-400 leading-tight pt-0.5">
+              Интервал затишья перед фиксацией полного дерева инцидента и отправкой алерта в Telegram.
             </p>
           </div>
 
@@ -3280,16 +3414,93 @@
       }
     }
 
-    function onModelSelectChange() {
-      const select = document.getElementById('settingsLlmModelSelect');
+    function chooseLlmModel(modelName) {
+      const hiddenInput = document.getElementById('settingsLlmModelSelect');
+      const badge = document.getElementById('selectedModelBadge');
       const customInput = document.getElementById('settingsCustomModelInput');
-      if (!select || !customInput) return;
-      if (select.value === 'custom') {
-        customInput.classList.remove('hidden');
-        customInput.focus();
+
+      if (hiddenInput) hiddenInput.value = modelName;
+      if (badge) badge.textContent = modelName;
+
+      const cards = document.querySelectorAll('.model-option-card');
+      cards.forEach(card => {
+        const id = card.getAttribute('data-model-id');
+        if (id === modelName) {
+          card.className = 'model-option-card btn-interactive p-2.5 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 cursor-pointer transition text-left space-y-1 shadow-sm';
+        } else {
+          card.className = 'model-option-card btn-interactive p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left space-y-1';
+        }
+      });
+
+      if (modelName === 'custom') {
+        if (customInput) {
+          customInput.classList.remove('hidden');
+          customInput.focus();
+        }
       } else {
-        customInput.classList.add('hidden');
+        if (customInput) customInput.classList.add('hidden');
       }
+      safeUpdateIcons();
+    }
+
+    function onCustomModelInputChange(val) {
+      const hiddenInput = document.getElementById('settingsLlmModelSelect');
+      const badge = document.getElementById('selectedModelBadge');
+      const clean = (val || '').trim();
+      if (clean) {
+        if (hiddenInput) hiddenInput.value = clean;
+        if (badge) badge.textContent = clean;
+      }
+    }
+
+    function chooseAlertMinErrors(errorsCount) {
+      const hiddenInput = document.getElementById('settingsAlertMinErrorsSelect');
+      const badge = document.getElementById('selectedMinErrorsBadge');
+      const count = parseInt(errorsCount, 10) || 1;
+
+      if (hiddenInput) hiddenInput.value = String(count);
+      if (badge) badge.textContent = `${count} ${count === 1 ? 'ошибка' : (count < 5 ? 'ошибки' : 'ошибок')}`;
+
+      const pills = document.querySelectorAll('.error-threshold-pill');
+      pills.forEach(pill => {
+        const val = parseInt(pill.getAttribute('data-errors-val'), 10);
+        if (val === count) {
+          pill.className = 'error-threshold-pill btn-interactive p-2 rounded-xl border border-indigo-500 bg-indigo-500/15 text-indigo-200 hover:border-indigo-400 text-left transition cursor-pointer space-y-0.5 shadow-sm';
+          const dot = pill.querySelector('span.rounded-full');
+          if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse';
+        } else {
+          pill.className = 'error-threshold-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 text-slate-300 text-left transition cursor-pointer space-y-0.5';
+          const dot = pill.querySelector('span.rounded-full');
+          if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-slate-600';
+        }
+      });
+    }
+
+    function chooseAlertDebounce(debounceSec) {
+      const hiddenInput = document.getElementById('settingsAlertDebounceSelect');
+      const badge = document.getElementById('selectedDebounceBadge');
+      const sec = parseFloat(debounceSec) || 1.5;
+
+      if (hiddenInput) hiddenInput.value = sec.toFixed(1);
+      if (badge) badge.textContent = `${sec.toFixed(1)} сек`;
+
+      const pills = document.querySelectorAll('.debounce-pill');
+      pills.forEach(pill => {
+        const val = parseFloat(pill.getAttribute('data-debounce-val'));
+        if (Math.abs(val - sec) < 0.05) {
+          pill.className = 'debounce-pill btn-interactive p-2 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 text-left transition cursor-pointer space-y-0.5 shadow-sm';
+          const title = pill.querySelector('div.font-mono');
+          if (title) title.className = 'text-xs font-bold font-mono text-indigo-200';
+        } else {
+          pill.className = 'debounce-pill btn-interactive p-2 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer space-y-0.5';
+          const title = pill.querySelector('div.font-mono');
+          if (title) title.className = 'text-xs font-bold font-mono text-slate-200';
+        }
+      });
+    }
+
+    function onModelSelectChange() {
+      // Сохранено для совместимости
     }
 
     function toggleSettingsKeyVisibility() {
@@ -3314,20 +3525,17 @@
           const data = await res.json();
           onLlmProviderChange(data.provider || 'groq');
 
-          const modelSelect = document.getElementById('settingsLlmModelSelect');
-          const customInput = document.getElementById('settingsCustomModelInput');
-          if (modelSelect) {
-            const knownModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'qwen2.5:1.5b'];
-            if (knownModels.includes(data.model)) {
-              modelSelect.value = data.model;
-              if (customInput) customInput.classList.add('hidden');
-            } else {
-              modelSelect.value = 'custom';
-              if (customInput) {
-                customInput.classList.remove('hidden');
-                customInput.value = data.model || '';
-              }
-            }
+          const knownModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'qwen2.5:1.5b'];
+          if (knownModels.includes(data.model)) {
+            chooseLlmModel(data.model);
+          } else if (data.model) {
+            chooseLlmModel('custom');
+            const customInput = document.getElementById('settingsCustomModelInput');
+            if (customInput) customInput.value = data.model;
+            const badge = document.getElementById('selectedModelBadge');
+            if (badge) badge.textContent = data.model;
+          } else {
+            chooseLlmModel('llama-3.3-70b-versatile');
           }
 
           const tempRange = document.getElementById('settingsTempRange');
@@ -3367,15 +3575,8 @@
             cascadeToggle.checked = Boolean(data.cascade_only);
           }
 
-          const minErrorsSelect = document.getElementById('settingsAlertMinErrorsSelect');
-          if (minErrorsSelect) {
-            minErrorsSelect.value = String(data.min_errors || 1);
-          }
-
-          const debounceSelect = document.getElementById('settingsAlertDebounceSelect');
-          if (debounceSelect) {
-            debounceSelect.value = parseFloat(data.debounce_seconds || 1.5).toFixed(1);
-          }
+          chooseAlertMinErrors(data.min_errors !== undefined ? data.min_errors : 1);
+          chooseAlertDebounce(data.debounce_seconds !== undefined ? data.debounce_seconds : 1.5);
         }
       } catch (e) {
         console.error('Ошибка загрузки правил алертинга:', e);

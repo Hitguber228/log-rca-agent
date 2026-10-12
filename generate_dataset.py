@@ -484,8 +484,8 @@ def stream_live_logs(delay_sec: float = 0.8, max_cycles: int = 1):
                     f.write(line + "\n")
 
                 print(f"  [{lvl:<8}] [{svc:<22}] {raw_msg[:70]}...")
-                # Небольшая пауза между шагами каскада
-                time.sleep(1.2)
+                # Быстрый шаг каскада для надежной группировки в Watcher
+                time.sleep(0.35)
 
             print(f"Каскад аварии завершён. Ожидание реакции Watcher...\n")
             time.sleep(3.0)

@@ -763,7 +763,7 @@ async def stream_incident_endpoint():
             )
             with open(LIVE_LOG_FILE, "a", encoding="utf-8") as f:
                 f.write(line + "\n")
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.3)
 
     asyncio.create_task(_stream_flow())
     return {
@@ -1238,23 +1238,13 @@ async def test_llm_connection(payload: LLMTestSchema):
 
 @app.get("/api/settings/alerts")
 def get_alert_settings():
-    min_level = os.getenv("ALERT_MIN_LEVEL") or getattr(settings, "alert_min_level", "ERROR")
-    cascade_only_str = os.getenv("ALERT_CASCADE_ONLY") or str(getattr(settings, "alert_cascade_only", False))
-    cascade_only = cascade_only_str.lower() in ("true", "1", "yes")
-    try:
-        min_errors = int(os.getenv("ALERT_MIN_ERRORS") or getattr(settings, "alert_min_errors", 1))
-    except Exception:
-        min_errors = 1
-    try:
-        debounce_sec = float(os.getenv("ALERT_DEBOUNCE_SECONDS") or getattr(settings, "alert_debounce_seconds", 1.5))
-    except Exception:
-        debounce_sec = 1.5
-
+    from src.watcher import get_alert_rules
+    rules = get_alert_rules()
     return {
-        "min_level": min_level.upper(),
-        "cascade_only": cascade_only,
-        "min_errors": min_errors,
-        "debounce_seconds": debounce_sec
+        "min_level": rules["min_level"],
+        "cascade_only": rules["cascade_only"],
+        "min_errors": rules["min_errors"],
+        "debounce_seconds": rules["debounce_sec"]
     }
 
 
@@ -1265,13 +1255,16 @@ def update_alert_settings(payload: AlertSettingsSchema):
     save_setting_to_env("ALERT_MIN_ERRORS", str(payload.min_errors))
     save_setting_to_env("ALERT_DEBOUNCE_SECONDS", str(payload.debounce_seconds))
 
+    from src.watcher import get_alert_rules
+    current_rules = get_alert_rules()
+
     return {
         "status": "ok",
         "message": "Правила алертинга успешно сохранены",
         "settings": {
-            "min_level": payload.min_level.upper(),
-            "cascade_only": payload.cascade_only,
-            "min_errors": payload.min_errors,
-            "debounce_seconds": payload.debounce_seconds
+            "min_level": current_rules["min_level"],
+            "cascade_only": current_rules["cascade_only"],
+            "min_errors": current_rules["min_errors"],
+            "debounce_seconds": current_rules["debounce_sec"]
         }
     }
