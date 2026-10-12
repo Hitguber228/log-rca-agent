@@ -473,8 +473,8 @@
                   <i data-lucide="sparkles" class="w-5 h-5"></i>
                 </div>
                 <h4 class="text-xs font-semibold text-slate-200 uppercase tracking-wide">Root Cause Analysis</h4>
-                <p class="max-w-md text-xs text-slate-400 leading-relaxed">
-                  Нажмите кнопку <span class="text-indigo-300 font-semibold">«Анализ»</span> в панели сверху, чтобы выявить эпицентр сбоя и сформировать шаги решения.
+                <p class="text-xs text-slate-400">
+                  Нажмите <span class="text-indigo-300 font-medium">«Анализ»</span> для выявления первопричины инцидента
                 </p>
               </div>
               <div id="reportContent"
@@ -934,7 +934,6 @@
             <h2 class="text-xs font-bold text-slate-100 uppercase tracking-wider">AI SRE-Ассистент</h2>
             <span class="text-[10px] px-1.5 py-0.2 rounded font-mono bg-purple-500/15 text-purple-300 border border-purple-500/25 font-semibold">Copilot</span>
           </div>
-          <p class="text-[10.5px] text-slate-400">Интерактивный анализ причин сбоя, генерация Runbook и команд</p>
         </div>
       </div>
 
@@ -1159,7 +1158,6 @@
             <i data-lucide="sliders" class="w-4 h-4 text-indigo-400"></i>
             <span>Центр настроек платформы</span>
           </h2>
-          <p class="text-xs text-slate-400">Конфигурация нейросетевого анализатора, правил алертинга и источников телеметрии</p>
         </div>
       </div>
 
@@ -1192,16 +1190,10 @@
         <!-- ----------------------------------------------------------------- -->
         <div id="settingsSectionLLM" class="space-y-6">
           <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
-            <div>
-              <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i>
-                <span>Интеллектуальный RCA-анализатор (LLM)</span>
-              </h3>
-              <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
-                Выбор движка, модели и тонкая настройка параметров генерации понятных логов и отчётов
-              </p>
-            </div>
-            <span class="text-xs font-mono text-slate-500">LLM Core v2</span>
+            <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="cpu" class="w-4 h-4 text-indigo-400"></i>
+              <span>Интеллектуальный RCA-анализатор (LLM)</span>
+            </h3>
           </div>
 
           <!-- Выбор провайдера -->
@@ -1216,7 +1208,7 @@
                   </span>
                   <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 provider-radio-indicator" id="providerIndicatorGroq"></span>
                 </div>
-                <span class="text-xs text-slate-300 leading-relaxed">Облачный Llama 3.3 (сверхбыстрый, ~150–300 мс)</span>
+                <span class="text-xs text-slate-400 font-mono">Облачный · LPU (~150 мс)</span>
               </label>
 
               <label class="cursor-pointer relative flex flex-col p-4 rounded-xl border border-slate-800 bg-slate-950/40 transition text-left space-y-1.5 hover:border-slate-700" id="llmProviderCardOllama">
@@ -1227,7 +1219,7 @@
                   </span>
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-600 provider-radio-indicator" id="providerIndicatorOllama"></span>
                 </div>
-                <span class="text-xs text-slate-300 leading-relaxed">Локальный сервер (localhost:11434, без интернета)</span>
+                <span class="text-xs text-slate-400 font-mono">Локальный · Без интернета</span>
               </label>
 
               <label class="cursor-pointer relative flex flex-col p-4 rounded-xl border border-slate-800 bg-slate-950/40 transition text-left space-y-1.5 hover:border-slate-700" id="llmProviderCardFallback">
@@ -1238,7 +1230,7 @@
                   </span>
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-600 provider-radio-indicator" id="providerIndicatorFallback"></span>
                 </div>
-                <span class="text-xs text-slate-300 leading-relaxed">Детерминированные правила (автономный режим)</span>
+                <span class="text-xs text-slate-400 font-mono">Автономный · Правила</span>
               </label>
             </div>
           </div>
@@ -1277,7 +1269,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="modelCardsContainer">
               <!-- Card 1: Llama 3.3 70B -->
               <div onclick="chooseLlmModel('llama-3.3-70b-versatile')" data-model-id="llama-3.3-70b-versatile"
-                class="model-option-card btn-interactive p-4 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 cursor-pointer transition text-left space-y-1.5 shadow-sm">
+                class="model-option-card btn-interactive p-4 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 cursor-pointer transition text-left shadow-sm">
                 <div class="flex items-center justify-between">
                   <span class="text-sm font-bold text-white flex items-center gap-1.5">
                     <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
@@ -1285,12 +1277,11 @@
                   </span>
                   <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold">RCA Топ</span>
                 </div>
-                <p class="text-xs text-slate-300 leading-relaxed">Глубокий анализ первопричин, расчёт рисков и генерация пошагового Runbook</p>
               </div>
 
               <!-- Card 2: Llama 3.1 8B -->
               <div onclick="chooseLlmModel('llama-3.1-8b-instant')" data-model-id="llama-3.1-8b-instant"
-                class="model-option-card btn-interactive p-4 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left space-y-1.5">
+                class="model-option-card btn-interactive p-4 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left">
                 <div class="flex items-center justify-between">
                   <span class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
                     <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
@@ -1298,12 +1289,11 @@
                   </span>
                   <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">~150 мс</span>
                 </div>
-                <p class="text-xs text-slate-300 leading-relaxed">Быстрый отклик с минимальной задержкой инференса для оперативных ответов</p>
               </div>
 
               <!-- Card 3: Mixtral 8x7B -->
               <div onclick="chooseLlmModel('mixtral-8x7b-32768')" data-model-id="mixtral-8x7b-32768"
-                class="model-option-card btn-interactive p-4 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left space-y-1.5">
+                class="model-option-card btn-interactive p-4 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left">
                 <div class="flex items-center justify-between">
                   <span class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
                     <i data-lucide="layers" class="w-4 h-4 text-sky-400"></i>
@@ -1311,12 +1301,11 @@
                   </span>
                   <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">32k контекст</span>
                 </div>
-                <p class="text-xs text-slate-300 leading-relaxed">Широкое контекстное окно для обработки массивных логов и длинных цепочек стектрейсов</p>
               </div>
 
               <!-- Card 4: Qwen 2.5 1.5B (Ollama) -->
               <div onclick="chooseLlmModel('qwen2.5:1.5b')" data-model-id="qwen2.5:1.5b"
-                class="model-option-card btn-interactive p-4 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left space-y-1.5">
+                class="model-option-card btn-interactive p-4 rounded-xl border border-slate-800 bg-slate-950/60 hover:border-slate-700 cursor-pointer transition text-left">
                 <div class="flex items-center justify-between">
                   <span class="text-sm font-bold text-slate-200 flex items-center gap-1.5">
                     <i data-lucide="server" class="w-4 h-4 text-emerald-400"></i>
@@ -1324,12 +1313,11 @@
                   </span>
                   <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Локальный</span>
                 </div>
-                <p class="text-xs text-slate-300 leading-relaxed">Полностью локальный запуск на собственном ПК через Ollama без передачи данных в сеть</p>
               </div>
             </div>
 
             <!-- Ручной ввод модели -->
-            <div class="pt-2">
+            <div class="pt-1">
               <button type="button" onclick="chooseLlmModel('custom')" id="btnCustomModelToggle"
                 class="btn-interactive text-xs sm:text-sm text-indigo-400 hover:text-indigo-300 font-mono flex items-center gap-1.5 transition cursor-pointer">
                 <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
@@ -1344,10 +1332,7 @@
           <!-- Температура инференса -->
           <div class="bg-slate-900/60 p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-3">
             <div class="flex items-center justify-between">
-              <div>
-                <span class="text-sm font-semibold text-slate-200 block">Температура генерации (Temperature):</span>
-                <span class="text-xs text-slate-400">Низкие значения обеспечивают детерминированность выводов, высокие — креативность рекомендаций</span>
-              </div>
+              <span class="text-sm font-semibold text-slate-200 block">Температура генерации (Temperature):</span>
               <span id="settingsTempValueBadge" class="font-mono font-bold text-indigo-400 bg-indigo-500/10 px-3 py-1 rounded-lg border border-indigo-500/25 text-sm">0.20</span>
             </div>
             <input type="range" id="settingsTempRange" min="0.0" max="0.7" step="0.05" value="0.2"
@@ -1362,10 +1347,7 @@
 
           <!-- Проверка связи -->
           <div class="bg-slate-900/60 p-5 sm:p-6 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <span class="text-sm font-semibold text-slate-200 block">Диагностика подключения нейросети:</span>
-              <span class="text-xs text-slate-400">Отправить тестовый запрос к активному движку и измерить задержку отклика</span>
-            </div>
+            <span class="text-sm font-semibold text-slate-200 block">Диагностика подключения нейросети</span>
             <button type="button" id="btnTestLlmConn" onclick="testLlmConnection()"
               class="btn-interactive px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs sm:text-sm font-semibold flex items-center gap-2 cursor-pointer shadow-sm">
               <i data-lucide="radio" class="w-4 h-4 text-indigo-400"></i>
@@ -1393,16 +1375,10 @@
         <!-- ----------------------------------------------------------------- -->
         <div id="settingsSectionAlerts" class="hidden space-y-6">
           <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
-            <div>
-              <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="bell" class="w-4 h-4 text-indigo-400"></i>
-                <span>Правила фильтрации и отправки алертов</span>
-              </h3>
-              <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
-                Подавление шума, отсечение ложных срабатываний и группировка каскадных отказов
-              </p>
-            </div>
-            <span class="text-xs font-mono text-slate-500">Alerting Policy</span>
+            <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="bell" class="w-4 h-4 text-indigo-400"></i>
+              <span>Правила фильтрации и отправки алертов</span>
+            </h3>
           </div>
 
           <!-- Минимальный уровень -->
@@ -1417,7 +1393,7 @@
                   </span>
                   <span class="w-2.5 h-2.5 rounded-full bg-amber-400 alert-level-indicator" id="alertIndicatorError"></span>
                 </div>
-                <span class="text-xs text-slate-300 leading-relaxed">Стандартный промышленный мониторинг сбоев (рекомендуется)</span>
+                <span class="text-xs text-slate-400">Стандартный режим · Рекомендуется</span>
               </label>
 
               <label class="cursor-pointer relative flex flex-col p-4 rounded-xl border border-slate-800 bg-slate-950/40 transition text-left space-y-1.5 hover:border-slate-700" id="alertLevelCardCrit">
@@ -1428,7 +1404,7 @@
                   </span>
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-600 alert-level-indicator" id="alertIndicatorCrit"></span>
                 </div>
-                <span class="text-xs text-slate-300 leading-relaxed">Строгий режим: оповещения только при фатальных падениях узлов</span>
+                <span class="text-xs text-slate-400">Строгий режим · Только фатальные сбои</span>
               </label>
 
               <label class="cursor-pointer relative flex flex-col p-4 rounded-xl border border-slate-800 bg-slate-950/40 transition text-left space-y-1.5 hover:border-slate-700" id="alertLevelCardWarn">
@@ -1439,7 +1415,7 @@
                   </span>
                   <span class="w-2.5 h-2.5 rounded-full bg-slate-600 alert-level-indicator" id="alertIndicatorWarn"></span>
                 </div>
-                <span class="text-xs text-slate-300 leading-relaxed">Режим отладки: сбор всех предупреждений и деградаций</span>
+                <span class="text-xs text-slate-400">Отладка · Предупреждения и деградации</span>
               </label>
             </div>
           </div>
@@ -1448,8 +1424,8 @@
           <div class="bg-slate-900/60 p-5 sm:p-6 rounded-2xl border border-slate-800 flex items-center justify-between gap-4">
             <div>
               <span class="text-sm font-semibold text-slate-200 block">Только каскадные аварии</span>
-              <span class="text-xs sm:text-sm text-slate-400 leading-relaxed block mt-0.5">
-                Отправлять алерт дежурному только если сбой затронул <b>2 и более</b> микросервисов. Одиночные сбои сохраняются в базе без беспокойства инженера.
+              <span class="text-xs text-slate-400 leading-relaxed block mt-0.5">
+                Оповещать дежурного, только если сбой затронул <b>2 и более</b> микросервисов
               </span>
             </div>
             <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
@@ -1461,10 +1437,7 @@
           <!-- Порог ошибок -->
           <div class="bg-slate-900/60 p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-3">
             <div class="flex items-center justify-between">
-              <div>
-                <label class="text-sm font-semibold text-slate-200 block">Минимальный порог ошибок в цепочке:</label>
-                <span class="text-xs text-slate-400">Инцидент отправляется, только если в нём накопилось указанное число сбоев</span>
-              </div>
+              <label class="text-sm font-semibold text-slate-200 block">Минимальный порог ошибок в цепочке:</label>
               <span id="selectedMinErrorsBadge" class="text-xs font-mono px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-bold">1 ошибка</span>
             </div>
 
@@ -1477,8 +1450,7 @@
                   <span class="text-sm font-bold font-mono">1</span>
                   <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                 </div>
-                <div class="text-xs font-semibold text-slate-200">Сразу</div>
-                <div class="text-[11px] text-slate-400 leading-tight">Первый сбой</div>
+                <div class="text-xs font-semibold text-slate-200">1 ошибка (Сразу)</div>
               </button>
 
               <button type="button" onclick="chooseAlertMinErrors(2)" data-errors-val="2"
@@ -1488,7 +1460,6 @@
                   <span class="w-2 h-2 rounded-full bg-slate-600"></span>
                 </div>
                 <div class="text-xs font-semibold text-slate-300">2 ошибки</div>
-                <div class="text-[11px] text-slate-400 leading-tight">Минимум пара</div>
               </button>
 
               <button type="button" onclick="chooseAlertMinErrors(3)" data-errors-val="3"
@@ -1498,7 +1469,6 @@
                   <span class="w-2 h-2 rounded-full bg-slate-600"></span>
                 </div>
                 <div class="text-xs font-semibold text-slate-300">3 ошибки</div>
-                <div class="text-[11px] text-slate-400 leading-tight">Без спайков</div>
               </button>
 
               <button type="button" onclick="chooseAlertMinErrors(5)" data-errors-val="5"
@@ -1508,7 +1478,6 @@
                   <span class="w-2 h-2 rounded-full bg-slate-600"></span>
                 </div>
                 <div class="text-xs font-semibold text-slate-300">5 ошибок</div>
-                <div class="text-[11px] text-slate-400 leading-tight">Серия сбоев</div>
               </button>
 
               <button type="button" onclick="chooseAlertMinErrors(10)" data-errors-val="10"
@@ -1518,7 +1487,6 @@
                   <span class="w-2 h-2 rounded-full bg-slate-600"></span>
                 </div>
                 <div class="text-xs font-semibold text-slate-300">10 ошибок</div>
-                <div class="text-[11px] text-slate-400 leading-tight">Блэкаут</div>
               </button>
             </div>
           </div>
@@ -1526,10 +1494,7 @@
           <!-- Окно дебаунса -->
           <div class="bg-slate-900/60 p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-3">
             <div class="flex items-center justify-between">
-              <div>
-                <label class="text-sm font-semibold text-slate-200 block">Окно группировки каскада (Debounce):</label>
-                <span class="text-xs text-slate-400">Интервал затишья перед фиксацией полного дерева инцидента и отправкой алерта в Telegram</span>
-              </div>
+              <label class="text-sm font-semibold text-slate-200 block">Окно группировки каскада (Debounce):</label>
               <span id="selectedDebounceBadge" class="text-xs font-mono px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 font-bold">1.5 сек</span>
             </div>
 
@@ -1537,27 +1502,23 @@
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="debouncePillsContainer">
               <button type="button" onclick="chooseAlertDebounce(0.5)" data-debounce-val="0.5"
-                class="debounce-pill btn-interactive p-3 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer space-y-1">
+                class="debounce-pill btn-interactive p-3 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer">
                 <div class="text-sm font-bold font-mono text-slate-200">0.5 сек</div>
-                <div class="text-xs text-slate-400">Ультрабыстрый</div>
               </button>
 
               <button type="button" onclick="chooseAlertDebounce(1.0)" data-debounce-val="1.0"
-                class="debounce-pill btn-interactive p-3 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer space-y-1">
+                class="debounce-pill btn-interactive p-3 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer">
                 <div class="text-sm font-bold font-mono text-slate-200">1.0 сек</div>
-                <div class="text-xs text-slate-400">Мгновенный</div>
               </button>
 
               <button type="button" onclick="chooseAlertDebounce(1.5)" data-debounce-val="1.5"
-                class="debounce-pill btn-interactive p-3 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 text-left transition cursor-pointer space-y-1">
-                <div class="text-sm font-bold font-mono text-indigo-200">1.5 сек</div>
-                <div class="text-xs text-indigo-300 font-medium">Оптимально</div>
+                class="debounce-pill btn-interactive p-3 rounded-xl border border-indigo-500 bg-indigo-500/15 hover:border-indigo-400 text-left transition cursor-pointer">
+                <div class="text-sm font-bold font-mono text-indigo-200">1.5 сек (Оптимально)</div>
               </button>
 
               <button type="button" onclick="chooseAlertDebounce(3.0)" data-debounce-val="3.0"
-                class="debounce-pill btn-interactive p-3 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer space-y-1">
+                class="debounce-pill btn-interactive p-3 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-slate-700 text-left transition cursor-pointer">
                 <div class="text-sm font-bold font-mono text-slate-200">3.0 сек</div>
-                <div class="text-xs text-slate-400">Длинные цепи</div>
               </button>
             </div>
           </div>
@@ -1581,16 +1542,10 @@
         <!-- ----------------------------------------------------------------- -->
         <div id="settingsSectionSource" class="hidden space-y-6">
           <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
-            <div>
-              <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="file-cog" class="w-4 h-4 text-indigo-400"></i>
-                <span>Источник системных логов и тестовые датасеты</span>
-              </h3>
-              <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
-                Управление отслеживаемым файлом (.log / .txt), регламент очистки и симуляция аварийного потока
-              </p>
-            </div>
-            <span class="text-xs font-mono text-slate-500">Log Pipeline</span>
+            <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="file-cog" class="w-4 h-4 text-indigo-400"></i>
+              <span>Источник системных логов и тестовые датасеты</span>
+            </h3>
           </div>
 
           <!-- Путь к файлу -->
@@ -1617,7 +1572,7 @@
           <div class="bg-slate-900/60 p-5 sm:p-6 rounded-2xl border border-slate-800 space-y-3">
             <div class="flex items-center justify-between">
               <div>
-                <span class="text-sm font-semibold text-slate-200 block">Политика ротации и хранения (Data Retention):</span>
+                <span class="text-sm font-semibold text-slate-200 block">Политика хранения (Data Retention):</span>
                 <span class="text-xs text-slate-400">Глубина хранения в локальной базе — 7 дней</span>
               </div>
               <span id="retentionStatusLabel" class="text-xs text-slate-400 font-mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">Автоочистка каждые 4 ч</span>
@@ -1625,7 +1580,7 @@
             <button type="button" onclick="triggerManualLogPurge()" id="purgeLogsBtn"
               class="btn-interactive py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-mono transition flex items-center justify-center gap-2 cursor-pointer shadow-sm">
               <i data-lucide="trash-2" class="w-4 h-4 text-rose-400"></i>
-              <span>Очистить старые логи прямо сейчас (ручная очистка)</span>
+              <span>Очистить устаревшие логи</span>
             </button>
           </div>
 
@@ -1634,18 +1589,15 @@
             <div class="flex items-center justify-between">
               <span class="text-sm font-semibold text-indigo-300 flex items-center gap-2">
                 <i data-lucide="database" class="w-4 h-4 text-indigo-400"></i>
-                <span>Тестовый продакшн-датасет для демонстрации</span>
+                <span>Тестовый датасет для демонстрации</span>
               </span>
-              <span class="text-indigo-400 font-mono text-xs bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">~350 логов · 6 сценариев аварий</span>
+              <span class="text-indigo-400 font-mono text-xs bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">~350 логов · 6 аварий</span>
             </div>
-            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Синтетический реалистичный трафик 10 распределённых микросервисов (Whisper, Postgres, Redis, LLM Agent, Gateway) с каскадными сбоями соединений и пулов для проверки RCA-алгоритма.
-            </p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <button type="button" onclick="loadDemoDataset('seed')" id="btnSeedDataset"
                 class="btn-interactive py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer">
                 <i data-lucide="download" class="w-4 h-4"></i>
-                <span>Загрузить датасет в базу данных</span>
+                <span>Загрузить датасет в базу</span>
               </button>
               <button type="button" onclick="loadDemoDataset('stream')" id="btnStreamDataset"
                 class="btn-interactive py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer"
@@ -1687,7 +1639,6 @@
           </div>
           <div>
             <h3 class="text-sm font-bold text-white tracking-tight">Telegram & 2FA Оповещения</h3>
-            <p class="text-[11px] text-slate-400">Привязка бота и верификация дежурного инженера</p>
           </div>
         </div>
         <button onclick="closeTelegramModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer">
@@ -1777,10 +1728,7 @@
 
         <!-- 3. Test Notification -->
         <div class="flex items-center justify-between bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-          <div>
-            <span class="text-[11px] font-semibold text-slate-200 block">3. Проверка доставки</span>
-            <span class="text-[10px] text-slate-400">Отправить тестовое сообщение дежурному</span>
-          </div>
+          <span class="text-[11px] font-semibold text-slate-200">3. Проверка доставки</span>
           <button id="modalTestAlertBtn" onclick="testTelegramAlertFromModal()"
             class="btn-interactive px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
             <i data-lucide="send" class="w-3 h-3 text-sky-400"></i>
@@ -2691,7 +2639,6 @@
               </div>
               <div class="min-w-0">
                 <div class="text-xs font-semibold truncate">Общий контекст системы</div>
-                <div class="text-[10px] text-slate-500 font-mono">Все сервисы и общая телеметрия</div>
               </div>
             </div>
             ${isGeneralActive ? '<span class="text-xs font-mono font-bold text-indigo-400">✓</span>' : ''}
