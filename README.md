@@ -19,32 +19,32 @@
 ```mermaid
 flowchart TD
     subgraph TargetSystem["1. Контролируемая микросервисная система (Целевой комплекс)"]
-        TargetApp["Бот обработки и расшифровки речи\n(Audio-Scriber Bot / main.py)"]
-        Services["Инфраструктурные сервисы\n(Распознавание речи Whisper, База данных, Redis, API)"]
-        TargetApp -->|Запись событий и ошибок| LiveLog["Журнал событий в реальном времени\n(Файл логов: live_service.log)"]
-        Services -->|Запись каскадных ошибок| LiveLog
+        TargetApp["Бот обработки и расшифровки речи<br/>(Audio-Scriber Bot / main.py)"]
+        Services["Инфраструктурные сервисы<br/>(Распознавание речи Whisper, База данных, Redis, API)"]
+        TargetApp -->|"Запись событий и ошибок"| LiveLog["Журнал событий в реальном времени<br/>(Файл логов: live_service.log)"]
+        Services -->|"Запись каскадных ошибок"| LiveLog
     end
 
     subgraph MonitoringCore["2. Ядро мониторинга и анализа (SRE Аналитический комплекс)"]
-        Watcher["Фоновый сборщик логов (Log Watcher / watcher.py)\n• Непрерывное чтение файла (tail -f)\n• Группировка ошибок по сквозному Trace ID\n• Окно агрегации каскада (дебаунс 1.5 сек)"]
-        LiveLog -->|Потоковый перехват строк| Watcher
-        Watcher -->|Сохранение событий (HTTP Ingest)| API["Центральный сервер API и оркестрации\n(FastAPI / api.py)"]
-        DB[("Хранилище событий и инцидентов\n(Реляционная БД: SQLite / PostgreSQL)")]
+        Watcher["Фоновый сборщик логов (Log Watcher / watcher.py)<br/>- Непрерывное чтение файла (tail -f)<br/>- Группировка ошибок по сквозному Trace ID<br/>- Окно агрегации каскада (дебаунс 1.5 сек)"]
+        LiveLog -->|"Потоковый перехват строк"| Watcher
+        Watcher -->|"Сохранение событий (HTTP Ingest)"| API["Центральный сервер API и оркестрации<br/>(FastAPI / api.py)"]
+        DB[("Хранилище событий и инцидентов<br/>(Реляционная БД: SQLite / PostgreSQL)")]
         API <--> DB
         
-        Agent["Нейросетевой агент анализа первопричин\n(RCA LLM Agent / agent.py)\n• Выявление эпицентра сбоя (Root Cause)\n• Генерация плана устранения (Runbook)\n• Провайдеры: Groq / Ollama / OpenAI / Резервные правила"]
-        API -->|Запрос аналитики| Agent
+        Agent["Нейросетевой агент анализа первопричин<br/>(RCA LLM Agent / agent.py)<br/>- Выявление эпицентра сбоя (Root Cause)<br/>- Генерация плана устранения (Runbook)<br/>- Провайдеры: Groq / Ollama / OpenAI / Резервные правила"]
+        API -->|"Запрос аналитики"| Agent
     end
 
     subgraph ObservabilityUI["3. Интерфейсы оператора и инженера (Observability & Control)"]
-        WebUI["Интерактивная веб-панель управления (Web Console)\n• Граф радиуса поражения сбоем (Blast Radius DAG)\n• Потоковая генерация отчёта (Streaming RCA Mode)\n• Поиск по логам на естественном языке (Smart NL Search)"]
-        API <-->|Двусторонний обмен (REST + WebSocket)| WebUI
+        WebUI["Интерактивная веб-панель управления (Web Console)<br/>- Граф радиуса поражения сбоем (Blast Radius DAG)<br/>- Потоковая генерация отчёта (Streaming RCA Mode)<br/>- Поиск по логам на естественном языке (Smart NL Search)"]
+        API <-->|"Двусторонний обмен (REST и WebSocket)"| WebUI
         
-        TelegramBot["Мобильное место дежурного инженера (Telegram Bot / bot.py)\n• Двухфакторная авторизация по PIN-коду (2FA)\n• Инженерные алерты о критических сбоях\n• Кнопки закрытия инцидентов и регламентные действия"]
-        Notifier["Модуль формирования алертов\n(Notifier / notifier.py)"]
-        Watcher -->|Сигнал о подтверждённом сбое| Notifier
-        Notifier -->|Доставка оповещения| TelegramBot
-        TelegramBot <-->|Смена статуса инцидента| API
+        TelegramBot["Мобильное место дежурного инженера (Telegram Bot / bot.py)<br/>- Двухфакторная авторизация по PIN-коду (2FA)<br/>- Инженерные алерты о критических сбоях<br/>- Кнопки закрытия инцидентов и регламентные действия"]
+        Notifier["Модуль формирования алертов<br/>(Notifier / notifier.py)"]
+        Watcher -->|"Сигнал о подтверждённом сбое"| Notifier
+        Notifier -->|"Доставка оповещения"| TelegramBot
+        TelegramBot <-->|"Смена статуса инцидента"| API
     end
 ```
 
