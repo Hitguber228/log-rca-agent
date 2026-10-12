@@ -1,3 +1,18 @@
+"""
+Модуль синтаксического анализа, нормализации и шаблонизации логов.
+
+Архитектурная роль:
+1. Универсальный разбор форматов:
+   - Автоматически распознает структурированный JSON (Logstash, Bunyan, Serilog).
+   - Поддерживает традиционный скобочный формат вида [TIMESTAMP] [LEVEL] [SERVICE] [TRACE_ID].
+   - Устойчив к смене порядка полей и нестандартным строкам.
+2. Алгоритм шаблонизации (Log Templating):
+   - Маскирует динамические переменные (IP-адреса, UUIDv4, шестнадцатеричные адреса памяти, ID)
+     заменяя их на маркер `<*>`.
+   - Позволяет сжимать миллионы однотипных записей в небольшое число уникальных сигнатур
+     (по принципу алгоритма Drain3), снижая нагрузку на реляционную БД SQLite.
+"""
+
 import re
 import json
 from datetime import datetime
@@ -5,6 +20,7 @@ from typing import Optional, Dict, Any, List
 from src.db import SessionLocal
 from src.models import LogTemplate, LogEvent
 
+# Регулярные выражения для выделения динамических параметров (IP, UUID, HEX, Числа)
 PARAM_REGEXES = [
     re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"),
     re.compile(r"\b[0-9a-fA-F-]{36}\b"),
@@ -14,6 +30,10 @@ PARAM_REGEXES = [
 
 
 def extract_template(message: str) -> str:
+    """
+    Извлекает инвариантный шаблон сообщения, заменяя динамические значения на токен <*>.
+    Пример: 'User 142 logged in from 192.168.1.1' -> 'User <*> logged in from <*>'
+    """
     cleaned = message
     for rx in PARAM_REGEXES:
         cleaned = rx.sub("<*>", cleaned)

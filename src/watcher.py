@@ -1,3 +1,15 @@
+"""
+Модуль фонового мониторинга и агрегации логов в реальном времени (Watcher Daemon).
+
+Архитектурная роль:
+1. Непрерывно читает отслеживаемый файл (эмуляция tail -f без блокировки CPU).
+2. Нормализует входящие строки через универсальный парсер и передает их в веб-интерфейс.
+3. Реализует алгоритм скользящего окна (Debounce Window): каскадные сбои микросервисов
+   происходят с разницей в доли секунды (например, упал Postgres -> завис пул -> Gateway отдал 504).
+   Дебаунс собирает всю цепочку в единый структурированный инцидент, предотвращая лавину алертов.
+4. Выполняет автоматический запуск анализа первопричин (RCA) и доставку уведомления в Telegram.
+"""
+
 import os
 import sys
 import time
@@ -6,6 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List
 
+# Принудительно включаем UTF-8 для стандартных потоков на Windows,
+# чтобы избежать искажения символов в PowerShell и командной строке
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -23,7 +37,10 @@ from src.retention import purge_old_log_events, rotate_live_log_file
 
 
 def notify_api_broadcast(event_type: str, data: Dict[str, Any]):
-    """Оповещает FastAPI веб-сервер для мгновенного бродкаста в браузеры через WebSocket."""
+    """
+    Отправляет внутреннее HTTP-уведомление в FastAPI для мгновенного бродкаста
+    события подключенным браузерам через WebSocket (без перезагрузки страницы).
+    """
     try:
         import urllib.request
         import json
@@ -34,12 +51,16 @@ def notify_api_broadcast(event_type: str, data: Dict[str, Any]):
         )
         urllib.request.urlopen(req, timeout=1.0)
     except Exception:
+        # Если API временно недоступен или перезапускается, не прерываем работу сборщика
         pass
 
 
 
 def get_alert_rules():
-    """Динамически считывает актуальные правила алертинга из файла .env и окружения."""
+    """
+    Считывает актуальные правила фильтрации из .env и переменных окружения.
+    Динамическое чтение позволяет изменять пороги алертов в настройках без рестарта воркера.
+    """
     env_vars = {}
     base_dir = Path(__file__).resolve().parent.parent
     targets = [Path(".env"), Path.cwd() / ".env", base_dir / ".env"]
@@ -244,7 +265,11 @@ def run_watcher():
                                 flush=True,
                             )
 
-        # 3. Дебаунс: независимо для каждого инцидента проверяем окно затишья
+        # 3. Дебаунс (Debounce Window):
+        # В микросервисной архитектуре сбой распространяется волной (Postgres -> Redis -> Gateway).
+        # Проверяем таймер затишья для каждого инцидента независимо: если за последние debounce_sec
+        # секунд новых ошибок по этой цепочке не поступало, значит каскад сформировался полностью.
+        # Фиксируем единый инцидент в базе и готовим один качественный алерт вместо спама десятком сообщений.
         rules = get_alert_rules()
         ready_keys = [
             k for k, inc in pending_incidents.items()
