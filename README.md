@@ -12,39 +12,47 @@
 
 ---
 
-## Архитектура системы
+## Архитектура системы (System Architecture)
+
+Схема взаимодействия компонентов: от возникновения сбоя в микросервисах до анализа первопричин искусственным интеллектом и оповещения дежурного инженера.
 
 ```mermaid
 flowchart TD
-    subgraph TargetSystem["Целевая система микросервисов"]
-        TargetApp["Audio-Scriber Bot (main.py)"]
-        Services["Microservices (Whisper, Postgres, Redis, API)"]
-        TargetApp -->|Логирует ошибки| LiveLog["live_service.log"]
-        Services -->|Логирует ошибки| LiveLog
+    subgraph TargetSystem["1. Контролируемая микросервисная система (Целевой комплекс)"]
+        TargetApp["Бот обработки и расшифровки речи\n(Audio-Scriber Bot / main.py)"]
+        Services["Инфраструктурные сервисы\n(Распознавание речи Whisper, База данных, Redis, API)"]
+        TargetApp -->|Запись событий и ошибок| LiveLog["Журнал событий в реальном времени\n(Файл логов: live_service.log)"]
+        Services -->|Запись каскадных ошибок| LiveLog
     end
 
-    subgraph MonitoringCore["Ядро мониторинга и анализа"]
-        Watcher["Watcher (src/watcher.py)\nRealtime Tail & Debounce 1.5s"]
-        LiveLog -->|Слушает файл| Watcher
-        Watcher -->|HTTP Ingest| API["FastAPI Server (api.py)"]
-        DB[("Storage (SQLite / PostgreSQL)")]
+    subgraph MonitoringCore["2. Ядро мониторинга и анализа (SRE Аналитический комплекс)"]
+        Watcher["Фоновый сборщик логов (Log Watcher / watcher.py)\n• Непрерывное чтение файла (tail -f)\n• Группировка ошибок по сквозному Trace ID\n• Окно агрегации каскада (дебаунс 1.5 сек)"]
+        LiveLog -->|Потоковый перехват строк| Watcher
+        Watcher -->|Сохранение событий (HTTP Ingest)| API["Центральный сервер API и оркестрации\n(FastAPI / api.py)"]
+        DB[("Хранилище событий и инцидентов\n(Реляционная БД: SQLite / PostgreSQL)")]
         API <--> DB
         
-        Agent["RCA Agent (src/agent.py)\nGroq / Ollama / OpenAI / Fallback"]
-        API --> Agent
+        Agent["Нейросетевой агент анализа первопричин\n(RCA LLM Agent / agent.py)\n• Выявление эпицентра сбоя (Root Cause)\n• Генерация плана устранения (Runbook)\n• Провайдеры: Groq / Ollama / OpenAI / Резервные правила"]
+        API -->|Запрос аналитики| Agent
     end
 
-    subgraph ObservabilityUI["Интерфейсы оператора"]
-        WebUI["Web Console (templates/index.html)\n- Blast Radius DAG\n- Streaming RCA Report\n- Smart NL Log Search"]
-        API <-->|REST + WebSocket| WebUI
+    subgraph ObservabilityUI["3. Интерфейсы оператора и инженера (Observability & Control)"]
+        WebUI["Интерактивная веб-панель управления (Web Console)\n• Граф радиуса поражения сбоем (Blast Radius DAG)\n• Потоковая генерация отчёта (Streaming RCA Mode)\n• Поиск по логам на естественном языке (Smart NL Search)"]
+        API <-->|Двусторонний обмен (REST + WebSocket)| WebUI
         
-        TelegramBot["SRE Telegram Bot (bot.py)\n- PIN 2FA Pairing\n- Incident Alerts\n- Resolve / Runbook Actions"]
-        Notifier["Notifier (src/notifier.py)"]
-        Watcher --> Notifier
-        Notifier --> TelegramBot
-        TelegramBot <-->|Callback / Resolve| API
+        TelegramBot["Мобильное место дежурного инженера (Telegram Bot / bot.py)\n• Двухфакторная авторизация по PIN-коду (2FA)\n• Инженерные алерты о критических сбоях\n• Кнопки закрытия инцидентов и регламентные действия"]
+        Notifier["Модуль формирования алертов\n(Notifier / notifier.py)"]
+        Watcher -->|Сигнал о подтверждённом сбое| Notifier
+        Notifier -->|Доставка оповещения| TelegramBot
+        TelegramBot <-->|Смена статуса инцидента| API
     end
 ```
+
+### Как это работает простыми словами:
+1. **Фиксация сбоя**: При возникновении ошибки микросервисы записывают событие со сквозным идентификатором запроса (`trace_id`) в общий журнал логов `live_service.log`.
+2. **Перехват и группировка**: Фоновый сервис `watcher.py` моментально считывает новые записи, связывает цепочку каскадного падения за 1.5 секунды и сохраняет данные в БД.
+3. **Нейросетевой анализ (RCA)**: Языковая модель (LLM) анализирует всю цепочку ошибки, определяет, какой сервис упал первым (эпицентр) и что именно произошло.
+4. **Уведомление и устранение**: Инженер получает краткий алерт в Telegram с готовой командой восстановления (Bash/SQL), а на веб-дашборде видит наглядный граф того, как ошибка распространялась по сервисам.
 
 ---
 
