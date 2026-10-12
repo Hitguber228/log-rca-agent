@@ -4,7 +4,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688.svg)](https://fastapi.tiangolo.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0%2B-red.svg)](https://www.sqlalchemy.org/)
 [![Aiogram](https://img.shields.io/badge/Aiogram-3.x-2CA5E0.svg)](https://aiogram.dev/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Non--Commercial-orange.svg)](LICENSE)
 
 Комплексная автономная **SRE-платформа мониторинга**, сбора распределённых логов, автоматического анализа первопричин аварий (**Root Cause Analysis, RCA**) с использованием языковых моделей (**LLM**) и доставки сжатых инженерных оповещений в **Telegram**.
 
@@ -206,4 +206,4 @@ start_services.bat
 
 ## Лицензия
 
-Проект распространяется под лицензией **MIT**. Подробности в файле [LICENSE](LICENSE).
+Проект распространяется под некоммерческой исследовательской лицензией (**Academic & Non-Commercial / No-Sale License**). Разрешено свободное использование, изучение, модификация и распространение в академических, исследовательских и личных целях. Прямая коммерческая продажа и монетизация ПО запрещены. Подробные условия в файле [LICENSE](LICENSE).
