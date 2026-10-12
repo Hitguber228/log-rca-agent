@@ -118,17 +118,33 @@ def check_ollama_available() -> bool:
 
 
 def get_llm_config():
-    """Определяет активный LLM провайдер и модель на основе настроек и окружения."""
+    """
+    Определяет активный LLM провайдер и модель на основе настроек и окружения.
+    Пользователь может динамически выбирать модель в настройках (Llama 3.3 70B, Llama 3.1 8B,
+    Mixtral 8x7B, Qwen 2.5 1.5B или указывать любую модель вручную, например deepseek-r1:8b).
+    """
     provider = os.getenv("LLM_PROVIDER") or getattr(settings, "llm_provider", "groq")
-    model = os.getenv("LLM_MODEL") or getattr(settings, "llm_model", "llama-3.3-70b-versatile")
     api_key = os.getenv("GROQ_API_KEY") or getattr(settings, "groq_api_key", None)
+    user_configured_model = os.getenv("LLM_MODEL")
 
     if provider == "groq":
+        # Для облачного Groq: используем выбранную пользователем модель или по умолчанию Llama 3.3 70B
+        model = user_configured_model or getattr(settings, "llm_model", "llama-3.3-70b-versatile")
         if api_key:
             return api_key, model, "groq", "https://api.groq.com/openai/v1/chat/completions"
         return None, "Rule-Based Engine", "fallback", None
 
     if provider == "ollama":
+        # Для локальной Ollama:
+        # Если пользователь выбрал локальную модель (например, qwen2.5:1.5b, deepseek-r1:8b, llama3:8b),
+        # используем её. Если же в переменной осталась облачная 70B модель от Groq,
+        # переключаем на компактную локальную qwen2.5:1.5b, чтобы не перегружать ПК 70-миллиардными весами.
+        groq_cloud_models = {"llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"}
+        if user_configured_model and user_configured_model not in groq_cloud_models:
+            model = user_configured_model
+        else:
+            model = os.getenv("OLLAMA_MODEL") or getattr(settings, "ollama_model", "qwen2.5:1.5b")
+
         if check_ollama_available():
             url = getattr(settings, "ollama_url", "http://127.0.0.1:11434/api/generate")
             return None, model, "ollama", url
@@ -139,7 +155,8 @@ def get_llm_config():
 
     openai_key = os.getenv("OPENAI_API_KEY") or getattr(settings, "openai_api_key", None)
     if openai_key and provider == "openai":
-        return openai_key, model or "gpt-4o-mini", "openai", "https://api.openai.com/v1/chat/completions"
+        model = user_configured_model or "gpt-4o-mini"
+        return openai_key, model, "openai", "https://api.openai.com/v1/chat/completions"
 
     return None, "Rule-Based Engine", "fallback", None
 

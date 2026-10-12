@@ -3624,6 +3624,18 @@
           keyBox.classList.add('hidden');
         }
       }
+
+      // Умная синхронизация модели: если переключились на локальную Ollama,
+      // а выбрана облачная 70B модель, переключаем на лёгкую локальную qwen2.5:1.5b
+      const hiddenModelInput = document.getElementById('settingsLlmModelSelect');
+      const currModel = hiddenModelInput ? hiddenModelInput.value : '';
+      const groqModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
+      if (provider === 'ollama' && (!currModel || groqModels.includes(currModel))) {
+        chooseLlmModel('qwen2.5:1.5b');
+      } else if (provider === 'groq' && (!currModel || currModel === 'qwen2.5:1.5b')) {
+        chooseLlmModel('llama-3.3-70b-versatile');
+      }
+
       safeUpdateIcons();
     }
 
