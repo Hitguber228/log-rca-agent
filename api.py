@@ -562,47 +562,138 @@ async def internal_broadcast_endpoint(payload: BroadcastPayload):
 async def copilot_chat_endpoint(payload: SreChatRequest):
     """Интерактивный диалог со встроенным SRE-ассистентом."""
     incident_data = None
-    if payload.trace_id or payload.incident_id:
-        session = SessionLocal()
-        try:
-            target_trace = payload.trace_id
-            if not target_trace and payload.incident_id and str(payload.incident_id).isdigit():
-                ev = session.query(LogEvent).filter(LogEvent.event_id == int(payload.incident_id)).first()
-                if ev:
-                    target_trace = ev.trace_id
+    session = SessionLocal()
+    try:
+        target_trace = payload.trace_id
+        raw_inc_id = str(payload.incident_id).replace('#', '').strip() if payload.incident_id else ""
+        target_ev = None
 
-            if target_trace:
-                chain = (
-                    session.query(LogEvent)
-                    .filter(LogEvent.trace_id == target_trace)
-                    .order_by(LogEvent.timestamp.asc(), LogEvent.event_id.asc())
-                    .all()
-                )
-                if chain:
-                    first = chain[0]
-                    incident_data = {
-                        "incident_id": first.event_id,
-                        "trace_id": target_trace,
-                        "first_affected_service": first.service_name,
-                        "root_cause_candidate": {
-                            "service": first.service_name,
-                            "level": first.log_level,
-                            "raw_message": first.raw_message,
-                        },
-                        "cascade_flow": [
-                            {
-                                "timestamp": c.timestamp.isoformat() if c.timestamp else "",
-                                "level": c.log_level,
-                                "service": c.service_name,
-                                "message": c.raw_message,
-                            }
-                            for c in chain
-                        ]
+        if not target_trace and raw_inc_id.isdigit():
+            target_ev = session.query(LogEvent).filter(LogEvent.event_id == int(raw_inc_id)).first()
+            if target_ev and target_ev.trace_id:
+                target_trace = target_ev.trace_id
+
+        if target_trace:
+            chain = (
+                session.query(LogEvent)
+                .filter(LogEvent.trace_id == target_trace)
+                .order_by(LogEvent.timestamp.asc(), LogEvent.event_id.asc())
+                .all()
+            )
+            if chain:
+                first = chain[0]
+                incident_data = {
+                    "incident_id": first.event_id,
+                    "trace_id": target_trace,
+                    "first_affected_service": first.service_name,
+                    "root_cause_candidate": {
+                        "service": first.service_name,
+                        "level": first.log_level,
+                        "raw_message": first.raw_message,
+                    },
+                    "cascade_flow": [
+                        {
+                            "timestamp": c.timestamp.isoformat() if c.timestamp else "",
+                            "level": c.log_level,
+                            "service": c.service_name,
+                            "message": c.raw_message,
+                        }
+                        for c in chain
+                    ]
+                }
+        elif target_ev:
+            incident_data = {
+                "incident_id": target_ev.event_id,
+                "trace_id": target_ev.trace_id or "N/A",
+                "first_affected_service": target_ev.service_name,
+                "root_cause_candidate": {
+                    "service": target_ev.service_name,
+                    "level": target_ev.log_level,
+                    "raw_message": target_ev.raw_message,
+                },
+                "cascade_flow": [
+                    {
+                        "timestamp": target_ev.timestamp.isoformat() if target_ev.timestamp else "",
+                        "level": target_ev.log_level,
+                        "service": target_ev.service_name,
+                        "message": target_ev.raw_message,
                     }
-        except Exception as e:
-            print(f"[!] Ошибка извлечения инцидента для ассистента: {e}", flush=True)
-        finally:
-            session.close()
+                ]
+            }
+
+        # Интеллектуальный подбор контекста: если пользователь упоминает сервис или проблему
+        if not incident_data and payload.message:
+            msg_lower = payload.message.lower()
+            known_services = {
+                "whisper": ["whisper-engine", "whisper", "faster-whisper"],
+                "s3": ["storage-s3-service", "minio"],
+                "minio": ["storage-s3-service", "minio"],
+                "postgres": ["postgres-cluster", "postgres"],
+                "pg": ["postgres-cluster", "postgres"],
+                "redis": ["redis-cache", "redis"],
+                "groq": ["llm-agent-service", "groq-llm"],
+                "gateway": ["api-gateway"],
+                "auth": ["auth-service"],
+                "scriber": ["audio-scriber-service"],
+            }
+            target_candidates = None
+            for kw, srv_list in known_services.items():
+                if kw in msg_lower:
+                    target_candidates = srv_list
+                    break
+
+            if target_candidates:
+                ev = (
+                    session.query(LogEvent)
+                    .filter(LogEvent.service_name.in_(target_candidates))
+                    .order_by(LogEvent.event_id.desc())
+                    .first()
+                )
+                if ev:
+                    incident_data = {
+                        "incident_id": ev.event_id,
+                        "trace_id": ev.trace_id or "N/A",
+                        "first_affected_service": ev.service_name,
+                        "root_cause_candidate": {
+                            "service": ev.service_name,
+                            "level": ev.log_level,
+                            "raw_message": ev.raw_message,
+                        },
+                        "cascade_flow": [{
+                            "timestamp": ev.timestamp.isoformat() if ev.timestamp else "",
+                            "level": ev.log_level,
+                            "service": ev.service_name,
+                            "message": ev.raw_message,
+                        }]
+                    }
+            elif any(w in msg_lower for w in ["эту проблему", "эту аварию", "этот инцидент", "что случилось"]):
+                latest_crit = (
+                    session.query(LogEvent)
+                    .filter(LogEvent.log_level.in_(["ERROR", "CRITICAL"]))
+                    .order_by(LogEvent.event_id.desc())
+                    .first()
+                )
+                if latest_crit:
+                    incident_data = {
+                        "incident_id": latest_crit.event_id,
+                        "trace_id": latest_crit.trace_id or "N/A",
+                        "first_affected_service": latest_crit.service_name,
+                        "root_cause_candidate": {
+                            "service": latest_crit.service_name,
+                            "level": latest_crit.log_level,
+                            "raw_message": latest_crit.raw_message,
+                        },
+                        "cascade_flow": [{
+                            "timestamp": latest_crit.timestamp.isoformat() if latest_crit.timestamp else "",
+                            "level": latest_crit.log_level,
+                            "service": latest_crit.service_name,
+                            "message": latest_crit.raw_message,
+                        }]
+                    }
+    except Exception as e:
+        print(f"[!] Ошибка извлечения инцидента для ассистента: {e}", flush=True)
+    finally:
+        session.close()
 
     answer = await ask_sre_assistant(
         user_message=payload.message,
