@@ -169,6 +169,8 @@ def format_incident_alert(incident: Dict[str, Any], rca_summary: str) -> str:
     root_info = incident.get("root_cause_candidate", {})
     raw_error = root_info.get("raw_message", "")
     clean_error = raw_error.replace("CRITICAL:", "").replace("ERROR:", "").strip()
+    if not clean_error and rca_summary:
+        clean_error = rca_summary.strip()
     if len(clean_error) > 160:
         clean_error = clean_error[:157] + "..."
 
@@ -203,13 +205,14 @@ def format_incident_alert(incident: Dict[str, Any], rca_summary: str) -> str:
     action_esc = html.escape(action)
 
     return (
-        f"<b>[CRITICAL] SRE INCIDENT #{inc_id_esc}</b>\n"
-        f"Time: {time_display_esc} | Service: <code>{service_esc}</code> | Trace: <code>{trace_id_esc}</code>\n\n"
-        f"<b>Root Cause:</b>\n"
+        f"🚨 <b>[CRITICAL] SRE INCIDENT #{inc_id_esc}</b>\n"
+        f"⏱ <b>Время:</b> {time_display_esc} | 📦 <b>Сервис:</b> <code>{service_esc}</code>\n"
+        f"🔗 <b>Trace:</b> <code>{trace_id_esc}</code>\n\n"
+        f"💥 <b>Root Cause:</b>\n"
         f"<code>{clean_error_esc}</code>\n\n"
-        f"<b>Cascade:</b> {cascade_str}\n\n"
-        f"<b>Action:</b> {action_esc}\n\n"
-        f"Dashboard: http://127.0.0.1:8000"
+        f"🔀 <b>Каскад:</b> {cascade_str}\n\n"
+        f"🛠 <b>Рекомендация:</b> {action_esc}\n\n"
+        f"📊 <b>Панель управления:</b> http://127.0.0.1:8000"
     )
 
 

@@ -58,12 +58,12 @@ dp = Dispatcher()
 # ---------------------------------------------------------------------------
 
 def get_main_reply_keyboard() -> ReplyKeyboardMarkup:
-    """Постоянное нижнее меню быстрых действий дежурного инженера."""
+    """Постоянное нижнее меню быстрых действий дежурного инженера с эмодзи."""
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="Мой ID"), KeyboardButton(text="Верификация")],
-            [KeyboardButton(text="Статус"), KeyboardButton(text="Инциденты")],
-            [KeyboardButton(text="Помощь"), KeyboardButton(text="Отвязать")],
+            [KeyboardButton(text="🆔 Мой ID"), KeyboardButton(text="🔐 Верификация")],
+            [KeyboardButton(text="📊 Статус"), KeyboardButton(text="🚨 Инциденты")],
+            [KeyboardButton(text="ℹ️ Помощь"), KeyboardButton(text="❌ Отвязать")],
         ],
         resize_keyboard=True,
         persistent=True,
@@ -74,17 +74,17 @@ def get_id_inline_keyboard(user_id: str) -> InlineKeyboardMarkup:
     """Инлайн-кнопки под карточкой ID: моментальное копирование в буфер и переход в веб-панель."""
     try:
         copy_btn = InlineKeyboardButton(
-            text=f"Скопировать ID: {user_id}",
+            text=f"📋 Скопировать ID: {user_id}",
             copy_text=CopyTextButton(text=str(user_id))
         )
     except Exception:
         copy_btn = InlineKeyboardButton(
-            text=f"Скопировать ID: {user_id}",
+            text=f"📋 Скопировать ID: {user_id}",
             callback_data=f"copy_id:{user_id}"
         )
 
     dash_btn = InlineKeyboardButton(
-        text="Открыть Веб-Панель",
+        text="🌐 Открыть Веб-Панель",
         url="http://127.0.0.1:8000"
     )
 
@@ -93,17 +93,17 @@ def get_id_inline_keyboard(user_id: str) -> InlineKeyboardMarkup:
 
 def get_incident_action_keyboard(incident_id: int, is_resolved: bool = False) -> InlineKeyboardMarkup:
     """Генерация интерактивной клавиатуры действий под карточкой инцидента."""
-    resolve_btn_text = "Открыть заново" if is_resolved else "Пометить решённым"
+    resolve_btn_text = "🔄 Открыть заново" if is_resolved else "✅ Пометить решённым"
     resolve_btn_data = f"reopen:{incident_id}" if is_resolved else f"resolve:{incident_id}"
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(text=resolve_btn_text, callback_data=resolve_btn_data),
-                InlineKeyboardButton(text="Очистить кэш", callback_data=f"clearcache:{incident_id}"),
+                InlineKeyboardButton(text="🧹 Очистить кэш", callback_data=f"clearcache:{incident_id}"),
             ],
             [
-                InlineKeyboardButton(text="Открыть панель", url="http://127.0.0.1:8000"),
+                InlineKeyboardButton(text="📊 Открыть панель", url="http://127.0.0.1:8000"),
             ]
         ]
     )
@@ -119,13 +119,13 @@ async def handle_start(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
     is_bound = (active_cid == user_cid)
-    status_badge = "<b>BOUND (Активен)</b>" if is_bound else "<b>NOT BOUND (Не привязан)</b>"
+    status_badge = "✅ <b>BOUND (Активен)</b>" if is_bound else "⚠️ <b>NOT BOUND (Не привязан)</b>"
 
     welcome_text = (
-        "<b>Добро пожаловать в SRE Incident Alerting Bot!</b>\n\n"
-        f"• <b>Ваш Chat ID:</b> <code>{user_cid}</code>\n"
-        f"• <b>Статус дежурного:</b> {status_badge}\n\n"
-        "Система круглосуточно мониторит системные логи, агрегирует каскадные сбои и отправляет детализированный Root Cause Analysis (RCA).\n\n"
+        "👋 <b>Добро пожаловать в SRE Incident Alerting Bot!</b>\n\n"
+        f"• 🆔 <b>Ваш Chat ID:</b> <code>{user_cid}</code>\n"
+        f"• 🛡 <b>Статус дежурного:</b> {status_badge}\n\n"
+        "🔍 Система круглосуточно мониторит системные логи, агрегирует каскадные сбои и отправляет детализированный Root Cause Analysis (RCA).\n\n"
         "Используйте кнопки меню внизу для быстрого управления:"
     )
     await message.answer(welcome_text, reply_markup=get_main_reply_keyboard())
@@ -137,11 +137,11 @@ async def handle_start(message: types.Message):
 
 @dp.message(Command("id"))
 @dp.message(Command("myid"))
-@dp.message(F.text.in_(["Мой ID", "ID", "id", "мой id", "мой ID"]))
+@dp.message(F.text.in_(["Мой ID", "🆔 Мой ID", "ID", "id", "мой id", "мой ID"]))
 async def handle_id_button(message: types.Message):
     user_cid = str(message.chat.id)
     text = (
-        "<b>Ваш персональный Telegram Chat ID:</b>\n"
+        "🆔 <b>Ваш персональный Telegram Chat ID:</b>\n"
         f"<code>{user_cid}</code>\n\n"
         "<i>Вставьте этот ID в веб-интерфейсе панели управления для генерации одноразового 2FA PIN-кода.</i>"
     )
@@ -149,7 +149,7 @@ async def handle_id_button(message: types.Message):
 
 
 @dp.message(Command("status"))
-@dp.message(F.text.in_(["Статус", "статус"]))
+@dp.message(F.text.in_(["Статус", "📊 Статус", "статус"]))
 async def handle_status_button(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
@@ -157,26 +157,26 @@ async def handle_status_button(message: types.Message):
     log_path = get_watched_log_path()
 
     if is_bound:
-        role_status = "<b>Вы являетесь активным дежурным инженером.</b> Все критические алерты направляются в этот чат."
+        role_status = "✅ <b>Вы являетесь активным дежурным инженером.</b> Все критические алерты направляются в этот чат."
     elif active_cid:
-        role_status = f"<b>К системе привязан другой аккаунт</b> (ID: <code>{active_cid}</code>).\nЧтобы переключить алерты на этот чат, пройдите авторизацию по PIN-коду."
+        role_status = f"⚠️ <b>К системе привязан другой аккаунт</b> (ID: <code>{active_cid}</code>).\nЧтобы переключить алерты на этот чат, пройдите авторизацию по PIN-коду."
     else:
-        role_status = "<b>Дежурный не назначен.</b> Оповещения в Telegram временно приостановлены."
+        role_status = "⏸ <b>Дежурный не назначен.</b> Оповещения в Telegram временно приостановлены."
 
     status_text = (
-        "<b>Статус платформы мониторинга SRE:</b>\n\n"
-        f"• <b>Ваш Chat ID:</b> <code>{user_cid}</code>\n"
-        f"• <b>Активный дежурный:</b> <code>{active_cid or 'Не привязан'}</code>\n"
-        f"• <b>Статус авторизации:</b> {'Привязан' if is_bound else 'Не привязан'}\n"
-        f"• <b>Отслеживаемый файл:</b> <code>{log_path}</code>\n"
-        f"• <b>Файл существует:</b> {'Да' if log_path.exists() else 'Нет'}\n\n"
+        "📊 <b>Статус платформы мониторинга SRE:</b>\n\n"
+        f"• 🆔 <b>Ваш Chat ID:</b> <code>{user_cid}</code>\n"
+        f"• 👨‍💻 <b>Активный дежурный:</b> <code>{active_cid or 'Не привязан'}</code>\n"
+        f"• 🔐 <b>Статус авторизации:</b> {'✅ Привязан' if is_bound else '❌ Не привязан'}\n"
+        f"• 📁 <b>Отслеживаемый файл:</b> <code>{log_path}</code>\n"
+        f"• ⚡ <b>Файл существует:</b> {'✅ Да' if log_path.exists() else '❌ Нет'}\n\n"
         f"{role_status}"
     )
     await message.answer(status_text, reply_markup=get_main_reply_keyboard())
 
 
 @dp.message(Command("verify"))
-@dp.message(F.text.in_(["Верификация", "верификация"]))
+@dp.message(F.text.in_(["Верификация", "🔐 Верификация", "верификация"]))
 async def handle_verification_button(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
@@ -185,30 +185,30 @@ async def handle_verification_button(message: types.Message):
     if is_bound:
         rebind_keyboard = InlineKeyboardMarkup(
             inline_keyboard=[
-                [InlineKeyboardButton(text="Сменить привязку / Ввести новый PIN", callback_data="force_rebind")],
-                [InlineKeyboardButton(text="Открыть Веб-Панель", url="http://127.0.0.1:8000")],
+                [InlineKeyboardButton(text="🔄 Сменить привязку / Ввести новый PIN", callback_data="force_rebind")],
+                [InlineKeyboardButton(text="🌐 Открыть Веб-Панель", url="http://127.0.0.1:8000")],
             ]
         )
         await message.answer(
-            "<b>Вы уже успешно верифицированы!</b>\n\n"
-            f"Ваш аккаунт (ID: <code>{user_cid}</code>) активен в системе мониторинга.\n"
+            "✅ <b>Вы уже успешно верифицированы!</b>\n\n"
+            f"Ваш аккаунт (ID: <code>{user_cid}</code>) активен в системе мониторинга 🛡.\n"
             "Все критические инциденты и отчёты RCA направляются в этот чат.",
             reply_markup=rebind_keyboard
         )
         return
 
     text = (
-        "<b>Верификация дежурного инженера (2FA):</b>\n\n"
-        "1. Откройте веб-панель управления: http://127.0.0.1:8000\n"
-        "2. В верхнем правом углу нажмите кнопку <b>Telegram</b>.\n"
-        f"3. Укажите ваш ID: <code>{user_cid}</code> и нажмите <b>«Получить PIN»</b>.\n"
-        "4. Отправьте полученный 4-значный PIN-код прямо в этот чат (например: <code>1234</code> или <code>/bind 1234</code>)."
+        "🔐 <b>Верификация дежурного инженера (2FA):</b>\n\n"
+        "1. 🌐 Откройте веб-панель управления: http://127.0.0.1:8000\n"
+        "2. 💬 В верхнем правом углу нажмите кнопку <b>Telegram</b>.\n"
+        f"3. 🔑 Укажите ваш ID: <code>{user_cid}</code> и нажмите <b>«Получить PIN»</b>.\n"
+        "4. 📲 Отправьте полученный 4-значный PIN-код прямо в этот чат (например: <code>1234</code>)."
     )
     await message.answer(text, reply_markup=get_id_inline_keyboard(user_cid))
 
 
 @dp.message(Command("incidents"))
-@dp.message(F.text.in_(["Инциденты", "инциденты"]))
+@dp.message(F.text.in_(["Инциденты", "🚨 Инциденты", "инциденты"]))
 async def handle_incidents_button(message: types.Message):
     try:
         from src.db import SessionLocal
@@ -227,12 +227,12 @@ async def handle_incidents_button(message: types.Message):
 
         if not events:
             await message.answer(
-                "<b>Всё спокойно!</b> В базе данных нет активных ошибок или критических инцидентов.",
+                "✅ <b>Всё спокойно!</b> В базе данных нет активных ошибок или критических инцидентов.",
                 reply_markup=get_main_reply_keyboard()
             )
             return
 
-        await message.answer("<b>Последние 5 инцидентов в системе:</b>")
+        await message.answer("🚨 <b>Последние 5 инцидентов в системе:</b>")
         for ev in events:
             ts = ev.timestamp.strftime("%Y-%m-%d %H:%M:%S") if ev.timestamp else "--:--:--"
             card_text = (
@@ -250,7 +250,7 @@ async def handle_incidents_button(message: types.Message):
 
 
 @dp.message(Command("unbind"))
-@dp.message(F.text.in_(["Отвязать", "отвязать"]))
+@dp.message(F.text.in_(["Отвязать", "❌ Отвязать", "отвязать"]))
 async def handle_unbind_button(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
@@ -258,28 +258,28 @@ async def handle_unbind_button(message: types.Message):
     if active_cid == user_cid:
         clear_chat_id_from_env()
         await message.answer(
-            "<b>Привязка чата успешно сброшена!</b>\n\n"
-            "Уведомления в этот чат приостановлены. Для возобновления нажмите кнопку «Верификация».",
+            "ℹ️ <b>Привязка чата успешно сброшена!</b>\n\n"
+            "Уведомления в этот чат приостановлены. Для возобновления нажмите кнопку «🔐 Верификация».",
             reply_markup=get_main_reply_keyboard()
         )
     else:
         await message.answer(
-            "Этот чат не является активным зарегистрированным дежурным.",
+            "⚠️ Этот чат не является активным зарегистрированным дежурным.",
             reply_markup=get_main_reply_keyboard()
         )
 
 
 @dp.message(Command("help"))
-@dp.message(F.text.in_(["Помощь", "помощь", "Справка", "справка"]))
+@dp.message(F.text.in_(["Помощь", "ℹ️ Помощь", "помощь", "Справка", "справка"]))
 async def handle_help_button(message: types.Message):
     help_text = (
-        "<b>Справочник команд и кнопок SRE-бота:</b>\n\n"
-        "• <b>Мой ID</b> — узнать и скопировать в буфер ваш Telegram Chat ID\n"
-        "• <b>Верификация</b> — инструкция по привязке аккаунта через одноразовый PIN\n"
-        "• <b>Статус</b> — текущее состояние мониторинга и отслеживаемого файла логов\n"
-        "• <b>Инциденты</b> — список 5 последних зафиксированных ошибок из базы\n"
-        "• <b>Отвязать</b> — отключить получение уведомлений об инцидентах\n\n"
-        "<i>Для подтверждения привязки просто отправьте в чат полученный 4-значный PIN-код или команду <code>/bind PIN</code>.</i>"
+        "📖 <b>Справочник команд и кнопок SRE-бота:</b>\n\n"
+        "• 🆔 <b>Мой ID</b> — узнать и скопировать в буфер ваш Telegram Chat ID\n"
+        "• 🔐 <b>Верификация</b> — инструкция по привязке аккаунта через одноразовый PIN\n"
+        "• 📊 <b>Статус</b> — текущее состояние мониторинга и отслеживаемого файла логов\n"
+        "• 🚨 <b>Инциденты</b> — список 5 последних зафиксированных ошибок из базы\n"
+        "• ❌ <b>Отвязать</b> — отключить получение уведомлений об инцидентах\n\n"
+        "<i>Для подтверждения привязки просто отправьте в чат полученный 4-значный PIN-код (например: <code>1234</code>).</i>"
     )
     await message.answer(help_text, reply_markup=get_main_reply_keyboard())
 
@@ -306,15 +306,15 @@ async def handle_pin_or_arbitrary_text(message: types.Message):
         success = verify_telegram_binding(user_cid, pin_candidate)
         if success:
             await message.answer(
-                "<b>Авторизация успешно подтверждена!</b>\n\n"
-                f"Чат <code>{user_cid}</code> надёжно привязан к системе мониторинга.\n"
-                "Сюда будут незамедлительно поступать алерты о критических сбоях и отчёты RCA с кнопками быстрого реагирования.",
+                "✅ <b>Авторизация успешно подтверждена!</b> 🎉\n\n"
+                f"Чат <code>{user_cid}</code> надёжно привязан к системе мониторинга 🛡.\n"
+                "Сюда будут незамедлительно поступать алерты о критических сбоях 🚨 и отчёты RCA с кнопками быстрого реагирования ⚡.",
                 reply_markup=get_main_reply_keyboard()
             )
         else:
             await message.answer(
-                "<b>Неверный или истёкший PIN-код.</b>\n\n"
-                f"Убедитесь, что вы запросили PIN в веб-панели (http://127.0.0.1:8000) для Chat ID <code>{user_cid}</code>.\n"
+                "❌ <b>Неверный или истёкший PIN-код.</b>\n\n"
+                f"Убедитесь, что вы запросили PIN в веб-панели (http://127.0.0.1:8000) для Chat ID <code>{user_cid}</code> 🔑.\n"
                 "Срок действия одноразового кода — 5 минут (максимум 3 попытки).",
                 reply_markup=get_main_reply_keyboard()
             )
@@ -322,7 +322,7 @@ async def handle_pin_or_arbitrary_text(message: types.Message):
 
     # 2. Если отправлен произвольный текст — напоминаем о кнопках меню
     await message.answer(
-        "<b>Используйте меню быстрых действий внизу</b> для работы с ботом или отправьте 4-значный PIN-код для привязки.",
+        "ℹ️ <b>Используйте меню быстрых действий внизу</b> для работы с ботом или отправьте 4-значный PIN-код для привязки.",
         reply_markup=get_main_reply_keyboard()
     )
 

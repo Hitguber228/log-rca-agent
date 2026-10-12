@@ -1687,11 +1687,11 @@
               </button>
             </div>
             <button id="modalSaveTokenBtn" onclick="saveBotTokenFromModal()"
-              class="btn-interactive px-2.5 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold whitespace-nowrap cursor-pointer">
+              class="btn-interactive px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-medium whitespace-nowrap cursor-pointer transition-colors">
               Сохранить
             </button>
             <button id="modalDeleteTokenBtn" onclick="deleteBotToken()"
-              class="btn-interactive hidden px-2 py-1.5 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-400 text-xs cursor-pointer">
+              class="btn-interactive hidden px-2.5 py-1.5 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-400 text-[11px] font-medium cursor-pointer">
               Удалить
             </button>
           </div>
@@ -1712,37 +1712,28 @@
             <input type="text" id="modalChatIdInput" placeholder="Telegram Chat ID (напр. 123456789)"
               class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-indigo-500">
             <button id="modalRequestPinBtn" onclick="requestPinCodeFromModal()"
-              class="btn-interactive px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold whitespace-nowrap cursor-pointer">
+              class="btn-interactive px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium whitespace-nowrap cursor-pointer transition-colors">
               Получить PIN
             </button>
             <button id="modalUnbindBtn" onclick="unbindTelegramFromModal()"
-              class="btn-interactive hidden px-2 py-1.5 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-400 text-xs cursor-pointer">
+              class="btn-interactive hidden px-2.5 py-1.5 rounded-lg bg-rose-950/40 border border-rose-800 text-rose-400 text-[11px] font-medium cursor-pointer">
               Отвязать
             </button>
           </div>
 
           <!-- Active PIN Block -->
-          <div id="modalPinCard" class="hidden p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-500/30 space-y-1.5">
-            <div class="flex items-center justify-between text-[11px]">
-              <span class="text-emerald-400 font-semibold">Ваш PIN-код: <span id="modalPinCodeDisplay"
-                  class="font-mono text-base font-bold text-white select-all ml-1">----</span></span>
-              <div class="flex items-center gap-1">
-                <button onclick="copyModalPinCommand()" id="modalCopyCmdBtn"
-                  class="btn-interactive px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-mono cursor-pointer">
-                  Команда
-                </button>
-                <button onclick="copyModalPinOnly()" id="modalCopyPinBtn"
-                  class="btn-interactive px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono cursor-pointer"
-                  title="Скопировать только PIN">
-                  PIN
-                </button>
-              </div>
+          <div id="modalPinCard" class="hidden p-2.5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-[11px] text-emerald-400 font-semibold whitespace-nowrap">PIN-код:</span>
+              <span id="modalPinCodeDisplay"
+                class="font-mono text-base font-bold text-white tracking-widest select-all">----</span>
+              <span class="text-[10px] text-slate-400 truncate">Отправьте эти 4 цифры боту в Telegram</span>
             </div>
-            <p class="text-[10px] text-slate-300">
-              Отправьте боту <span id="modalPinBotLink" class="font-mono text-sky-400 font-bold">@bot</span> команду:
-              <code id="modalPinCommandText"
-                class="px-1.5 py-0.5 rounded bg-slate-900 text-emerald-300 font-mono select-all">/bind ----</code>
-            </p>
+            <button onclick="copyModalPinOnly()" id="modalCopyPinBtn"
+              class="btn-interactive px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-medium whitespace-nowrap flex items-center gap-1 cursor-pointer transition-colors">
+              <i data-lucide="copy" class="w-3 h-3"></i>
+              <span id="modalCopyPinBtnText">Скопировать PIN</span>
+            </button>
           </div>
 
           <!-- Bound Success Card -->
@@ -3240,7 +3231,7 @@
       } finally {
         if (saveBtn) {
           saveBtn.disabled = false;
-          saveBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i><span>Сохранить и проверить</span>';
+          saveBtn.innerHTML = 'Сохранить';
         }
         safeUpdateIcons();
       }
@@ -3274,7 +3265,7 @@
       const reqBtn = document.getElementById('modalRequestPinBtn');
       if (reqBtn) {
         reqBtn.disabled = true;
-        reqBtn.innerHTML = '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin mr-1 inline-block"></i><span>Запрос...</span>';
+        reqBtn.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3 animate-spin mr-1 inline-block"></i><span>Запрос...</span>';
         safeUpdateIcons();
       }
 
@@ -3287,10 +3278,8 @@
         const data = await res.json();
         if (res.ok && data.pin) {
           const pinDisp = document.getElementById('modalPinCodeDisplay');
-          const cmdDisp = document.getElementById('modalPinCommandText');
           const pinCard = document.getElementById('modalPinCard');
           if (pinDisp) pinDisp.innerText = data.pin;
-          if (cmdDisp) cmdDisp.innerText = `/bind ${data.pin}`;
           if (pinCard) pinCard.classList.remove('hidden');
           showToastNotification(`Сгенерирован PIN-код: ${data.pin}`, "success");
           startAuthPolling();
@@ -3302,40 +3291,30 @@
       } finally {
         if (reqBtn) {
           reqBtn.disabled = false;
-          reqBtn.innerHTML = '<i data-lucide="key" class="w-3.5 h-3.5"></i><span>Получить PIN</span>';
+          reqBtn.innerHTML = 'Получить PIN';
         }
         safeUpdateIcons();
-      }
-    }
-
-    function copyModalPinCommand() {
-      const cmdDisp = document.getElementById('modalPinCommandText');
-      const cmd = cmdDisp ? cmdDisp.innerText.trim() : '';
-      navigator.clipboard.writeText(cmd);
-      const btn = document.getElementById('modalCopyCmdBtn');
-      if (btn) {
-        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5 text-white"></i><span>Скопировано!</span>';
-        safeUpdateIcons();
-        setTimeout(() => {
-          btn.innerHTML = '<i data-lucide="copy" class="w-3.5 h-3.5"></i><span>Скопировать команду</span>';
-          safeUpdateIcons();
-        }, 2000);
       }
     }
 
     function copyModalPinOnly() {
       const pinDisp = document.getElementById('modalPinCodeDisplay');
       const pin = pinDisp ? pinDisp.innerText.trim() : '';
+      if (!pin || pin === '----') return;
       navigator.clipboard.writeText(pin);
       const btn = document.getElementById('modalCopyPinBtn');
       if (btn) {
-        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>';
+        btn.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-emerald-300"></i><span>Скопировано!</span>';
         safeUpdateIcons();
         setTimeout(() => {
-          btn.innerHTML = '<i data-lucide="copy" class="w-3.5 h-3.5"></i>';
+          btn.innerHTML = '<i data-lucide="copy" class="w-3 h-3"></i><span>Скопировать PIN</span>';
           safeUpdateIcons();
         }, 2000);
       }
+    }
+
+    function copyModalPinCommand() {
+      copyModalPinOnly();
     }
 
     async function unbindTelegramFromModal() {
