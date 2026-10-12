@@ -81,3 +81,31 @@ def test_rca_analyze_concurrency_lock(client):
     finally:
         if RCA_ANALYSIS_LOCK.locked():
             RCA_ANALYSIS_LOCK.release()
+
+
+def test_clear_incident_cache_completely_purges_memory(client):
+    from api import CACHE_REPORTS
+    from src.incident_store import get_cached_report
+
+    inc_id = "88888"
+    trace_id = "test-purge-trace-88888"
+
+    # Записываем отчёт в кэш
+    CACHE_REPORTS[inc_id] = "Старый отчет анализа LLM"
+    CACHE_REPORTS[trace_id] = "Старый отчет анализа LLM"
+
+    assert get_cached_report(inc_id) == "Старый отчет анализа LLM"
+    assert get_cached_report(trace_id) == "Старый отчет анализа LLM"
+
+    # Вызываем эндпоинт очистки кэша
+    resp = client.post("/rca/incident/clear-cache", json={
+        "incident_id": int(inc_id),
+        "trace_id": trace_id
+    })
+    assert resp.status_code == 200
+
+    # Проверяем, что в памяти и в базе данных отчет полностью стёрт
+    assert get_cached_report(inc_id) is None
+    assert get_cached_report(trace_id) is None
+    assert inc_id not in CACHE_REPORTS
+    assert trace_id not in CACHE_REPORTS

@@ -451,8 +451,8 @@
               <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
               <span>Анализ</span>
             </button>
-            <button onclick="clearCurrentIncidentCache()" title="Сбросить кэш отчёта"
-              class="btn-interactive p-1.5 rounded-lg border border-transparent hover:border-rose-500/30 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition cursor-pointer">
+            <button id="deleteReportBtn" onclick="clearCurrentIncidentCache()" title="Удалить анализ инцидента из памяти"
+              class="hidden btn-interactive p-1.5 rounded-lg border border-transparent hover:border-rose-500/30 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 transition cursor-pointer">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
@@ -2542,6 +2542,26 @@
           selectedIncident.has_cached_report = true;
           delete selectedIncident._liveStreamingReport;
           delete selectedIncident._isStreaming;
+          renderReportState();
+        }
+        renderIncidentTabs();
+        if (typeof updateRcaRunButtonState === 'function') updateRcaRunButtonState();
+      } else if (type === 'rca_report_cleared') {
+        if (allIncidents && Array.isArray(allIncidents)) {
+          const matched = allIncidents.find(i => String(i.incident_id) === String(data.incident_id) || (data.trace_id && i.trace_id === data.trace_id));
+          if (matched) {
+            matched.cached_report = null;
+            matched.has_cached_report = false;
+            delete matched._liveStreamingReport;
+            delete matched._isStreaming;
+          }
+        }
+        if (selectedIncident && (String(selectedIncident.incident_id) === String(data.incident_id) || (data.trace_id && selectedIncident.trace_id === data.trace_id))) {
+          selectedIncident.cached_report = null;
+          selectedIncident.has_cached_report = false;
+          delete selectedIncident._liveStreamingReport;
+          delete selectedIncident._isStreaming;
+          resetReportView();
           renderReportState();
         }
         renderIncidentTabs();
@@ -4941,6 +4961,7 @@
       const tgBtn = document.getElementById('shareTgBtn');
       const copyBtn = document.getElementById('copyReportBtn');
       const pdfBtn = document.getElementById('exportPdfBtn');
+      const delBtn = document.getElementById('deleteReportBtn');
 
       if (!selectedIncident) {
         if (ph) ph.classList.remove('hidden');
@@ -4949,6 +4970,7 @@
         if (tgBtn) tgBtn.classList.add('hidden');
         if (copyBtn) copyBtn.classList.add('hidden');
         if (pdfBtn) pdfBtn.classList.add('hidden');
+        if (delBtn) delBtn.classList.add('hidden');
         updateRcaRunButtonState();
         safeUpdateIcons();
         return;
@@ -4970,6 +4992,7 @@
         if (tgBtn) tgBtn.classList.add('hidden');
         if (copyBtn) copyBtn.classList.add('hidden');
         if (pdfBtn) pdfBtn.classList.add('hidden');
+        if (delBtn) delBtn.classList.add('hidden');
         updateRcaRunButtonState();
         safeUpdateIcons();
         return;
@@ -4995,6 +5018,7 @@
         if (tgBtn) tgBtn.classList.remove('hidden');
         if (copyBtn) copyBtn.classList.remove('hidden');
         if (pdfBtn) pdfBtn.classList.remove('hidden');
+        if (delBtn) delBtn.classList.remove('hidden');
       } else {
         // 3. Отчета нет - показываем исходный плейсхолдер
         if (ph) ph.classList.remove('hidden');
@@ -5003,6 +5027,7 @@
         if (tgBtn) tgBtn.classList.add('hidden');
         if (copyBtn) copyBtn.classList.add('hidden');
         if (pdfBtn) pdfBtn.classList.add('hidden');
+        if (delBtn) delBtn.classList.add('hidden');
       }
       updateRcaRunButtonState();
       safeUpdateIcons();
@@ -5018,9 +5043,11 @@
       const tgBtn = document.getElementById('shareTgBtn');
       const copyBtn = document.getElementById('copyReportBtn');
       const pdfBtn = document.getElementById('exportPdfBtn');
+      const delBtn = document.getElementById('deleteReportBtn');
       if (tgBtn) tgBtn.classList.add('hidden');
       if (copyBtn) copyBtn.classList.add('hidden');
       if (pdfBtn) pdfBtn.classList.add('hidden');
+      if (delBtn) delBtn.classList.add('hidden');
       updateRcaRunButtonState();
     }
 
@@ -5195,14 +5222,14 @@
     async function clearCurrentIncidentCache() {
       if (!selectedIncident) return;
       if (isRcaStreaming && String(selectedIncident.incident_id) === String(activeRcaStreamIncidentId)) {
-        showToastNotification("Нельзя сбросить отчёт во время активного анализа инцидента.", "warn");
+        showToastNotification("Нельзя удалить отчёт во время активного анализа инцидента.", "warn");
         return;
       }
       if (!selectedIncident.cached_report) {
-        showToastNotification("Кэшированный отчёт отсутствует.", "warn");
+        showToastNotification("Сохранённый отчёт отсутствует.", "warn");
         return;
       }
-      if (!await showConfirmDialog("Сброс отчёта", "Сбросить сохраненный AI-отчёт по этому инциденту?", { danger: false })) return;
+      if (!await showConfirmDialog("Удаление анализа", "Полностью удалить сохранённый AI-отчёт по этому инциденту из базы и памяти? При следующем запуске будет сгенерирован абсолютно новый анализ.", { danger: true })) return;
 
       try {
         const res = await fetch('/rca/incident/clear-cache', {
@@ -5216,16 +5243,33 @@
         });
 
         if (res.ok) {
+          // 1. Полностью стираем кэшированный отчет из памяти текущего инцидента
           selectedIncident.cached_report = null;
           selectedIncident.has_cached_report = false;
+          delete selectedIncident._liveStreamingReport;
+          delete selectedIncident._isStreaming;
+
+          // 2. Полностью стираем в массиве allIncidents, чтобы отчет не мог восстановиться при переключении
+          if (allIncidents && Array.isArray(allIncidents)) {
+            const matched = allIncidents.find(i => String(i.incident_id) === String(selectedIncident.incident_id) || (selectedIncident.trace_id && i.trace_id === selectedIncident.trace_id));
+            if (matched) {
+              matched.cached_report = null;
+              matched.has_cached_report = false;
+              delete matched._liveStreamingReport;
+              delete matched._isStreaming;
+            }
+          }
+
           resetReportView();
+          renderReportState();
           renderIncidentTabs();
-          showToastNotification("Кэш AI-отчёта очищен", "success");
+          updateRcaRunButtonState();
+          showToastNotification("Анализ инцидента полностью удалён из памяти", "success");
         } else {
-          showToastNotification("Не удалось очистить кэш на сервере.", "error");
+          showToastNotification("Не удалось удалить отчёт на сервере.", "error");
         }
       } catch (err) {
-        showToastNotification("Сетевая ошибка при сбросе кэша.", "error");
+        showToastNotification("Сетевая ошибка при удалении отчёта.", "error");
       }
     }
 

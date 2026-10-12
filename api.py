@@ -829,6 +829,13 @@ async def clear_incident_cache(body: ClearCacheSchema):
     clear_cached_report(inc_id)
     if body.trace_id:
         clear_cached_report(str(body.trace_id))
+
+    # Синхронизируем удаление отчёта со всеми вкладками в реальном времени
+    asyncio.create_task(broadcast_live_event("rca_report_cleared", {
+        "incident_id": body.incident_id,
+        "trace_id": body.trace_id
+    }))
+
     return {"status": "ok"}
 
 

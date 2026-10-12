@@ -98,11 +98,11 @@ def clear_cached_report(incident_key: str) -> None:
     key = str(incident_key).strip()
     session = SessionLocal()
     try:
-        record = session.query(UserIncidentState).filter(UserIncidentState.trace_id == key).first()
-        if record:
+        records = session.query(UserIncidentState).filter(UserIncidentState.trace_id == key).all()
+        for record in records:
             record.cached_report = None
             record.updated_at = datetime.now(timezone.utc)
-            session.commit()
+        session.commit()
     except Exception:
         session.rollback()
     finally:
