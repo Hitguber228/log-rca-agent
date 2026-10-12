@@ -175,7 +175,7 @@
         <button id="navAssistantBtn" onclick="switchMainTab('assistant')"
           class="btn-interactive px-3 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 transition flex items-center gap-1.5 cursor-pointer">
           <i data-lucide="bot" class="w-3.5 h-3.5"></i>
-          <span>AI SRE-Ассистент</span>
+          <span>AI-Ассистент</span>
         </button>
       </nav>
     </div>
@@ -183,10 +183,18 @@
     <!-- Правая панель статусов и настроек -->
     <div class="flex items-center gap-2">
 
+      <!-- Глобальный Live Tail переключатель -->
+      <button type="button" id="liveTailToggleBtn" onclick="toggleLiveTail()"
+        title="Глобальный Live Tail: Автоматический живой поток входящих логов"
+        class="btn-interactive flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-mono transition cursor-pointer shadow-sm">
+        <span class="w-2 h-2 rounded-full bg-slate-500 transition-colors" id="liveTailDot"></span>
+        <span id="liveTailText" class="text-slate-300 font-medium text-[11px]">Live Tail: Выкл</span>
+      </button>
+
       <!-- Главный глобальный переключатель: Понятный лог / Сырой лог -->
       <button id="globalTopHumanToggleBtn" onclick="toggleHumanView()"
         title="Глобальное переключение: Понятный лог (SRE RU) / Сырой лог (Raw)"
-        class="btn-interactive flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25 transition cursor-pointer text-xs font-semibold shadow-sm">
+        class="btn-interactive flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 text-indigo-200 hover:bg-indigo-500/25 transition cursor-pointer text-xs font-semibold shadow-sm">
         <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-400"></i>
         <span>Понятный лог</span>
       </button>
@@ -195,17 +203,17 @@
 
       <!-- 1. Источник логов -->
       <button id="logSourceHeaderBtn" onclick="openSettingsModal('source')" title="Источник логов (нажмите для настройки)"
-        class="btn-interactive flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-mono transition cursor-pointer">
+        class="btn-interactive flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-mono transition cursor-pointer">
         <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
         <span id="logSourceNameLabel" class="text-slate-300 font-medium text-[11px]">app.log</span>
         <span id="logSourceDot" class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
       </button>
 
-      <!-- 2. Индикатор статуса LLM -->
+      <!-- 2. Компактный индикатор статуса LLM -->
       <div id="llmStatusBadge" onclick="openSettingsModal('llm')" title="Статус LLM (нажмите для настройки нейросети)"
-        class="btn-interactive flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-mono transition cursor-pointer">
-        <span class="w-1.5 h-1.5 rounded-full bg-slate-500 animate-pulse" id="llmStatusDot"></span>
-        <span id="llmStatusText" class="text-slate-400 font-medium text-[11px]">LLM</span>
+        class="btn-interactive flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-slate-800 bg-slate-900/80 hover:bg-slate-800 text-xs font-mono transition cursor-pointer">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" id="llmStatusDot"></span>
+        <span id="llmStatusText" class="text-slate-300 font-medium text-[11px]">AI</span>
       </div>
 
       <div class="h-4 w-px bg-slate-800"></div>
@@ -443,8 +451,8 @@
                         <div class="flex items-center gap-2 flex-wrap">
                           <span id="inspectorNodeName" class="text-xs font-bold text-slate-100 font-mono">service</span>
                           <span id="inspectorNodeBadge" class="text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold">ЭПИЦЕНТР</span>
-                          <span id="inspectorNodeTime" class="text-[11px] font-mono text-slate-400">--:--:-- UTC</span>
-                          <span id="inspectorNodeLatency" class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">Δt: +0.0s</span>
+                          <span id="inspectorNodeTime" class="hidden"></span>
+                          <span id="inspectorNodeLatency" class="hidden"></span>
                         </div>
                         <div id="inspectorNodeHuman" class="text-xs text-slate-200 mt-1 leading-relaxed">Кликните по узлу выше для анализа шага аварии.</div>
                       </div>
@@ -461,26 +469,31 @@
                         <i data-lucide="search" class="w-3 h-3"></i>
                         <span>В Explorer</span>
                       </button>
-                      <button type="button" onclick="askCopilotAboutGraphNode()" title="Спросить AI"
-                        class="btn-interactive px-2.5 py-1 rounded-md border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-mono transition flex items-center gap-1">
-                        <i data-lucide="bot" class="w-3 h-3"></i>
-                        <span>Спросить AI</span>
-                      </button>
                     </div>
                   </div>
 
-                  <!-- Регламентное действие -->
-                  <div id="inspectorRunbookContainer" class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2 text-xs text-amber-200/90 leading-relaxed">
-                    <i data-lucide="wrench" class="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5"></i>
-                    <div>
-                      <span class="font-bold text-amber-300 uppercase tracking-wide text-[10px] font-mono mr-1">Регламент:</span>
-                      <span id="inspectorRunbookText">Очистить VRAM GPU, уменьшить batch size или перезапустить сервис.</span>
+                  <!-- Регламентное действие и аккуратный скрываемый стек-трейс -->
+                  <div class="space-y-2">
+                    <div id="inspectorRunbookContainer" class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-start gap-2.5 text-xs text-amber-200/90 leading-relaxed">
+                      <i data-lucide="wrench" class="w-4 h-4 text-amber-400 shrink-0 mt-0.5"></i>
+                      <div>
+                        <span class="font-bold text-amber-300 uppercase tracking-wide text-[10px] font-mono mr-1">Регламент восстановления:</span>
+                        <span id="inspectorRunbookText">Очистить VRAM GPU, уменьшить batch size или перезапустить сервис.</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <!-- Сырой лог ошибки -->
-                  <div id="inspectorNodeRawMessage" class="font-mono text-[11px] text-slate-400 bg-slate-900 p-2.5 rounded-lg border border-slate-800 overflow-x-auto whitespace-pre-wrap select-all max-h-28">
-                    --
+                    <details class="group rounded-lg border border-slate-800/80 bg-slate-900/50 overflow-hidden">
+                      <summary class="px-3 py-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-200 cursor-pointer select-none flex items-center justify-between transition-colors">
+                        <span class="flex items-center gap-1.5">
+                          <i data-lucide="terminal" class="w-3.5 h-3.5 text-slate-500"></i>
+                          <span>Системный стек-трейс / точный лог ошибки</span>
+                        </span>
+                        <span class="text-[10px] text-slate-500 group-open:hidden">Развернуть ↓</span>
+                      </summary>
+                      <div id="inspectorNodeRawMessage" class="font-mono text-[10.5px] text-slate-400 bg-slate-950 p-2.5 border-t border-slate-800 overflow-x-auto whitespace-pre-wrap select-all max-h-28 leading-relaxed opacity-85">
+                        --
+                      </div>
+                    </details>
                   </div>
                 </div>
               </div>
@@ -506,7 +519,7 @@
           <div class="relative flex-1">
             <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
             <input type="text" id="searchInput"
-              placeholder='Поиск логов: "упал", "whisper oom", "service:whisper", "504 Gateway Timeout"...'
+              placeholder="Поиск логов..."
               class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-9 pr-20 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono">
             <button type="submit"
               class="btn-interactive absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer">
@@ -698,57 +711,20 @@
             </div>
           </div>
 
-          <!-- Переключатель Live Tail -->
-          <button type="button" id="liveTailToggleBtn" onclick="toggleLiveTail()"
-            class="btn-interactive px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-mono flex items-center gap-1.5 transition cursor-pointer"
-            title="Автоматический живой поток входящих логов">
-            <span class="w-2 h-2 rounded-full bg-slate-500 transition-colors" id="liveTailDot"></span>
-            <span id="liveTailText">Live Tail: Выкл</span>
-          </button>
-
           <button type="button" onclick="resetSearchFilters()"
             class="btn-interactive px-2.5 py-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-xs transition cursor-pointer">
             Сброс
+          </button>
+
+          <button type="button" onclick="loadDemoDataset('seed')" title="Пересоздать тестовый датасет (~350 логов) в базе данных"
+            class="btn-interactive ml-auto px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-xs font-mono transition cursor-pointer flex items-center gap-1.5">
+            <i data-lucide="database" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span class="hidden sm:inline">Загрузить датасет</span>
           </button>
         </form>
 
         <!-- Чипы формализатора запросов -->
         <div id="chipsContainer" class="flex flex-wrap items-center gap-1.5 min-h-[16px]"></div>
-
-        <!-- Быстрые фильтры без эмодзи -->
-        <div class="flex items-center gap-2 flex-wrap text-xs pt-0.5">
-          <span class="text-slate-500 font-mono text-[11px]">Пресеты:</span>
-          <button type="button" onclick="applySearchPreset('level:errors')"
-            class="btn-interactive px-2.5 py-0.5 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-mono transition cursor-pointer">
-            CRIT / ERR
-          </button>
-          <button type="button" onclick="applySearchPreset('whisper')"
-            class="btn-interactive px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-mono transition cursor-pointer">
-            Whisper OOM
-          </button>
-          <button type="button" onclick="applySearchPreset('postgres')"
-            class="btn-interactive px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-mono transition cursor-pointer">
-            PostgreSQL Pool
-          </button>
-          <button type="button" onclick="applySearchPreset('groq')"
-            class="btn-interactive px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-mono transition cursor-pointer">
-            Groq 429
-          </button>
-          <button type="button" onclick="applySearchPreset('deadlock')"
-            class="btn-interactive px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-mono transition cursor-pointer">
-            Deadlock
-          </button>
-          <button type="button" onclick="applySearchPreset('redis')"
-            class="btn-interactive px-2.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[11px] font-mono transition cursor-pointer">
-            Redis OOM
-          </button>
-
-          <button type="button" onclick="loadDemoDataset('seed')" title="Пересоздать тестовый датасет (~350 логов) в базе данных"
-            class="btn-interactive ml-auto px-2.5 py-0.5 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-[11px] font-mono transition cursor-pointer flex items-center gap-1.5">
-            <i data-lucide="database" class="w-3 h-3 text-indigo-400"></i>
-            <span>Загрузить датасет</span>
-          </button>
-        </div>
 
       </div>
     </div>
@@ -837,7 +813,7 @@
     </div>
   </div>
 
-  <!-- ВКЛАДКА 3: AI SRE-АССИСТЕНТ -->
+  <!-- ВКЛАДКА 3: AI-АССИСТЕНТ -->
   <div id="tabAssistant" class="hidden flex-1 flex-col overflow-hidden bg-[#0b0f17]">
 
     <!-- Верхняя панель ассистента -->
@@ -848,23 +824,51 @@
           <i data-lucide="bot" class="w-4 h-4"></i>
         </div>
         <div>
-          <h2 class="text-xs font-bold text-slate-100 uppercase tracking-wider">AI SRE-Ассистент</h2>
+          <h2 class="text-xs font-bold text-slate-100 uppercase tracking-wider">AI-Ассистент</h2>
           <p class="text-[11px] text-slate-400">Интерактивный анализ причин сбоя, генерация Runbook и команд</p>
         </div>
       </div>
 
       <div class="flex items-center gap-2">
-        <!-- Селектор контекста -->
-        <div
-          class="flex items-center gap-2 bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg text-xs">
-          <span class="text-slate-400 text-[11px] font-medium flex items-center gap-1">
-            <i data-lucide="crosshair" class="w-3 h-3 text-indigo-400"></i>
-            Контекст:
-          </span>
-          <select id="assistantContextSelect" onchange="onAssistantContextChanged()"
-            class="bg-transparent text-slate-200 font-mono text-xs focus:outline-none cursor-pointer">
-            <option value="" class="bg-slate-900 text-slate-200">Общий контекст системы</option>
-          </select>
+        <!-- Селектор контекста (в стиле фильтров, без затемнения) -->
+        <div class="relative" id="assistantContextWrapper">
+          <input type="hidden" id="assistantContextSelect" value="">
+          <button type="button" id="assistantContextBtn" onclick="toggleAssistantContextPopover(event)"
+            class="btn-interactive px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-mono flex items-center gap-2 transition cursor-pointer"
+            title="Выбрать контекст для AI-ассистента">
+            <i data-lucide="crosshair" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span class="text-slate-400 font-sans text-[11px]">Контекст:</span>
+            <span id="assistantContextBtnLabel" class="text-indigo-300 font-bold max-w-[180px] truncate">Общий обзор</span>
+            <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+          </button>
+
+          <!-- Выпадающий поповер без затемнения -->
+          <div id="assistantContextPopover" onclick="event.stopPropagation()"
+            class="hidden absolute right-0 top-full mt-2 w-80 sm:w-96 bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl p-3 z-50 space-y-2.5 animate-modal">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+              <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <i data-lucide="crosshair" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span>Выбор контекста аварии</span>
+              </span>
+              <button type="button" onclick="closeAssistantContextPopover(event)" class="text-slate-400 hover:text-slate-200 p-1 rounded-md hover:bg-slate-800 transition cursor-pointer">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <!-- Поиск по названию или тегу (#) -->
+            <div class="relative">
+              <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+              <input type="text" id="assistantContextSearch" oninput="filterAssistantContextOptions()"
+                placeholder="Поиск по названию или #ID..."
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 font-mono focus:outline-none focus:border-indigo-500">
+            </div>
+
+            <!-- Список доступных контекстов -->
+            <div id="assistantContextList" class="max-h-60 overflow-y-auto space-y-1 pr-1">
+              <!-- Рендерится через JS: Общий контекст + инциденты -->
+            </div>
+          </div>
         </div>
 
         <button onclick="clearAssistantHistory()" title="Очистить историю диалога"
@@ -884,7 +888,7 @@
             <i data-lucide="bot" class="w-6 h-6"></i>
           </div>
           <div>
-            <h3 class="text-sm font-bold text-slate-100">AI SRE-Ассистент готов к работе</h3>
+            <h3 class="text-sm font-bold text-slate-100">AI-Ассистент готов к работе</h3>
             <p class="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
               Задайте вопрос по инциденту или выберите одну из быстрых команд ниже:
             </p>
@@ -1617,6 +1621,23 @@
           closeFiltersModal();
         }
       }
+
+      const acPopover = document.getElementById('assistantContextPopover');
+      const acBtn = document.getElementById('assistantContextBtn');
+      if (acPopover && !acPopover.classList.contains('hidden')) {
+        const path = (typeof e.composedPath === 'function') ? e.composedPath() : [];
+        const isInsidePopover = path.includes(acPopover) ||
+                                acPopover.contains(e.target) ||
+                                (e.target && typeof e.target.closest === 'function' && e.target.closest('#assistantContextPopover'));
+        const isInsideBtn = acBtn && (
+                              path.includes(acBtn) ||
+                              acBtn.contains(e.target) ||
+                              (e.target && typeof e.target.closest === 'function' && e.target.closest('#assistantContextBtn'))
+                            );
+        if (!isInsidePopover && !isInsideBtn) {
+          closeAssistantContextPopover();
+        }
+      }
     });
 
     let allIncidents = [];
@@ -1838,14 +1859,14 @@
       const txt = document.getElementById('liveTailText');
 
       if (isLiveTailActive) {
-        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-ping';
+        if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
         if (txt) txt.textContent = 'Live Tail: ВКЛ';
-        if (btn) btn.className = 'btn-interactive px-3.5 py-2 rounded-xl border border-emerald-500/50 bg-emerald-500/15 text-emerald-300 text-sm font-mono flex items-center gap-2 transition cursor-pointer shadow-sm';
+        if (btn) btn.className = 'btn-interactive flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 text-emerald-200 text-xs font-mono transition cursor-pointer shadow-sm';
         showToastNotification("Live Tail включён (живой поток активен)", "info");
       } else {
         if (dot) dot.className = 'w-2 h-2 rounded-full bg-slate-500';
         if (txt) txt.textContent = 'Live Tail: Выкл';
-        if (btn) btn.className = 'btn-interactive px-3.5 py-2 rounded-xl border border-slate-700/80 bg-slate-900/90 hover:bg-slate-800 text-slate-300 text-sm font-mono flex items-center gap-2 transition cursor-pointer shadow-sm';
+        if (btn) btn.className = 'btn-interactive flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-xs font-mono transition cursor-pointer shadow-sm';
         showToastNotification("Live Tail приостановлен", "info");
       }
     }
@@ -2290,32 +2311,134 @@
     // =========================================================
     let assistantChatHistory = [];
 
-    function initAssistantContextOptions() {
-      const select = document.getElementById('assistantContextSelect');
-      if (!select) return;
+    function toggleAssistantContextPopover(e) {
+      if (e) e.stopPropagation();
+      const popover = document.getElementById('assistantContextPopover');
+      if (!popover) return;
+      if (popover.classList.contains('hidden')) {
+        popover.classList.remove('hidden');
+        renderAssistantContextList();
+        const searchInput = document.getElementById('assistantContextSearch');
+        if (searchInput) {
+          searchInput.value = '';
+          setTimeout(() => searchInput.focus(), 50);
+        }
+      } else {
+        closeAssistantContextPopover();
+      }
+    }
 
-      const currentVal = select.value;
-      select.innerHTML = '<option value="" class="bg-slate-900 text-slate-200">Общий контекст системы</option>';
+    function closeAssistantContextPopover(e) {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      const popover = document.getElementById('assistantContextPopover');
+      if (popover) popover.classList.add('hidden');
+    }
 
+    function renderAssistantContextList(filterText = '') {
+      const container = document.getElementById('assistantContextList');
+      if (!container) return;
+
+      const currentVal = document.getElementById('assistantContextSelect')?.value || '';
+      const filterLow = (filterText || '').toLowerCase().trim();
+
+      let html = '';
+
+      // 1. Общий контекст
+      const isGeneralActive = !currentVal;
+      const generalMatches = !filterLow || 'общий контекст системы general обзор'.includes(filterLow);
+      if (generalMatches) {
+        html += `
+          <div onclick="selectAssistantContext('', 'Общий обзор')"
+            class="btn-interactive p-2.5 rounded-lg border transition-all cursor-pointer flex items-center justify-between ${isGeneralActive ? 'bg-indigo-600/15 border-indigo-500/40 text-indigo-300' : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'}">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="p-1.5 rounded-md ${isGeneralActive ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-900 text-slate-400'}">
+                <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+              </div>
+              <div class="min-w-0">
+                <div class="text-xs font-semibold truncate">Общий контекст системы</div>
+                <div class="text-[10px] text-slate-500 font-mono">Все сервисы и общая телеметрия</div>
+              </div>
+            </div>
+            ${isGeneralActive ? '<span class="text-xs font-mono font-bold text-indigo-400">✓</span>' : ''}
+          </div>
+        `;
+      }
+
+      // 2. Список аварий
       if (Array.isArray(allIncidents) && allIncidents.length > 0) {
         allIncidents.forEach(inc => {
-          const opt = document.createElement('option');
-          opt.className = 'bg-slate-900 text-slate-200';
-          opt.value = inc.trace_id ? `trace:${inc.trace_id}` : String(inc.incident_id);
-          opt.textContent = `#${inc.incident_id} [${inc.first_affected_service}] (${inc.trace_id || 'no-trace'})`;
-          select.appendChild(opt);
+          const incIdStr = `#${inc.incident_id}`;
+          const serviceName = inc.first_affected_service || 'unknown';
+          const rawMsg = inc.root_cause_candidate?.raw_message || '';
+          const humanMsg = humanizeLogMessage(rawMsg);
+          const traceId = inc.trace_id || '';
+          const targetVal = traceId ? `trace:${traceId}` : String(inc.incident_id);
+
+          const searchTarget = `${incIdStr} ${serviceName} ${traceId} ${rawMsg} ${humanMsg}`.toLowerCase();
+          if (filterLow && !searchTarget.includes(filterLow)) return;
+
+          const isItemActive = currentVal === targetVal;
+          const displayLabel = `#${inc.incident_id} (${serviceName})`;
+
+          html += `
+            <div onclick="selectAssistantContext('${escapeHtml(targetVal)}', '${escapeHtml(displayLabel)}')"
+              class="btn-interactive p-2.5 rounded-lg border transition-all cursor-pointer flex items-start justify-between gap-2 ${isItemActive ? 'bg-indigo-600/15 border-indigo-500/40 text-indigo-200' : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-800/80'}">
+              <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                <div class="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 shrink-0 mt-0.5">
+                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-xs font-mono font-bold text-indigo-300">#${inc.incident_id}</span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-900 border border-slate-800 text-slate-300 font-medium">${escapeHtml(serviceName)}</span>
+                    ${traceId ? `<span class="text-[9px] font-mono text-slate-500 truncate max-w-[100px]">trace:${escapeHtml(traceId.slice(0, 8))}</span>` : ''}
+                  </div>
+                  <div class="text-[11px] text-slate-400 truncate mt-1 font-sans leading-snug">${escapeHtml(humanMsg)}</div>
+                </div>
+              </div>
+              ${isItemActive ? '<span class="text-xs font-mono font-bold text-indigo-400 mt-1">✓</span>' : ''}
+            </div>
+          `;
         });
       }
 
-      if (currentVal) select.value = currentVal;
+      if (!html) {
+        html = '<div class="text-center text-xs text-slate-500 py-6">Ничего не найдено по запросу</div>';
+      }
+
+      container.innerHTML = html;
+      safeUpdateIcons();
+    }
+
+    function filterAssistantContextOptions() {
+      const searchInput = document.getElementById('assistantContextSearch');
+      renderAssistantContextList(searchInput ? searchInput.value : '');
+    }
+
+    function selectAssistantContext(val, label, autoMessage = true) {
+      const hiddenInput = document.getElementById('assistantContextSelect');
+      if (hiddenInput) hiddenInput.value = val;
+      const labelEl = document.getElementById('assistantContextBtnLabel');
+      if (labelEl) labelEl.textContent = label || 'Общий обзор';
+      closeAssistantContextPopover();
+      if (autoMessage) {
+        if (val) {
+          appendAssistantMessage('system', `Контекст переключен на: ${label}`);
+        } else {
+          appendAssistantMessage('system', 'Контекст переключен на общий обзор системы.');
+        }
+      }
+    }
+
+    function initAssistantContextOptions() {
+      renderAssistantContextList();
     }
 
     function onAssistantContextChanged() {
-      const select = document.getElementById('assistantContextSelect');
-      if (!select) return;
-      const val = select.value;
+      const hiddenInput = document.getElementById('assistantContextSelect');
+      const val = hiddenInput ? hiddenInput.value : '';
       if (val) {
-        appendAssistantMessage('system', `Контекст переключен на: ${select.options[select.selectedIndex].text}`);
+        appendAssistantMessage('system', `Контекст переключен на: ${val}`);
       } else {
         appendAssistantMessage('system', 'Контекст переключен на общий обзор системы.');
       }
@@ -2324,12 +2447,9 @@
     function openAssistantForCurrentIncident() {
       if (!selectedIncident) return;
       switchMainTab('assistant');
-      const select = document.getElementById('assistantContextSelect');
-      if (select) {
-        const targetVal = selectedIncident.trace_id ? `trace:${selectedIncident.trace_id}` : String(selectedIncident.incident_id);
-        select.value = targetVal;
-        appendAssistantMessage('system', `Подключен контекст аварии #${selectedIncident.incident_id} (${selectedIncident.first_affected_service})`);
-      }
+      const targetVal = selectedIncident.trace_id ? `trace:${selectedIncident.trace_id}` : String(selectedIncident.incident_id);
+      const label = `#${selectedIncident.incident_id} (${selectedIncident.first_affected_service || 'incident'})`;
+      selectAssistantContext(targetVal, label, true);
     }
 
     function handleAssistantInputKey(e) {
@@ -2396,6 +2516,16 @@
       }
     }
 
+    function copyElementAssistantText(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      navigator.clipboard.writeText(el.innerText || el.textContent).then(() => {
+        showToastNotification('Ответ ассистента скопирован', 'success');
+      }).catch(() => {
+        showToastNotification('Скопировано', 'success');
+      });
+    }
+
     function appendAssistantMessage(role, content) {
       const list = document.getElementById('assistantMessagesList');
       if (!list) return;
@@ -2406,35 +2536,57 @@
       }
 
       const div = document.createElement('div');
-      div.className = 'flex gap-3 text-sm leading-relaxed animate-modal';
+      div.className = 'w-full animate-modal';
 
       if (role === 'user') {
-        div.className += ' justify-end';
         div.innerHTML = `
-          <div class="max-w-xl p-4 rounded-2xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20 font-sans text-sm sm:text-[14.5px] leading-relaxed">
-            ${escapeHtml(content)}
+          <div class="flex items-start justify-end gap-2.5 max-w-2xl ml-auto mb-3">
+            <div class="p-3.5 sm:p-4 rounded-2xl rounded-tr-sm bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-950/40 font-sans text-xs sm:text-[13.5px] leading-relaxed">
+              ${escapeHtml(content)}
+            </div>
+            <div class="p-2 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 shrink-0 mt-0.5 shadow-sm">
+              <i data-lucide="user" class="w-4 h-4"></i>
+            </div>
           </div>
         `;
       } else if (role === 'system') {
-        div.className += ' justify-center';
         div.innerHTML = `
-          <div class="px-3 py-1 rounded-full bg-slate-900 border border-white/[0.08] text-xs text-indigo-300 font-mono flex items-center gap-1.5 shadow-sm">
-            <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-400"></i>
-            <span>${escapeHtml(content)}</span>
+          <div class="flex justify-center my-2">
+            <div class="px-3.5 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-400 font-mono flex items-center gap-1.5 shadow-sm">
+              <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-400"></i>
+              <span>${escapeHtml(content)}</span>
+            </div>
           </div>
         `;
       } else {
-        const bubble = document.createElement('div');
-        bubble.className = 'flex-1 p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-white/[0.08] text-slate-200 shadow-md font-sans text-sm sm:text-[14.5px] leading-relaxed space-y-2.5';
-        
+        const bubbleId = 'ai_bubble_' + Date.now();
         div.innerHTML = `
-          <div class="p-2 rounded-xl bg-purple-500/15 border border-purple-500/25 text-purple-400 self-start shrink-0 mt-0.5">
-            <i data-lucide="bot" class="w-4 h-4"></i>
+          <div class="flex items-start gap-2.5 max-w-3xl w-full mb-3">
+            <div class="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 shrink-0 mt-0.5 shadow-sm">
+              <i data-lucide="bot" class="w-4 h-4"></i>
+            </div>
+            <div class="flex-1 rounded-2xl rounded-tl-sm bg-slate-900/95 border border-slate-800 p-4 sm:p-5 text-slate-200 shadow-xl space-y-2.5 font-sans text-xs sm:text-[13.5px] leading-relaxed">
+              <div class="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-2 text-[11px] font-mono text-slate-400">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-slate-200 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    AI-Ассистент
+                  </span>
+                </div>
+                <button onclick="copyElementAssistantText('${bubbleId}')" class="btn-interactive text-[11px] text-slate-400 hover:text-slate-200 flex items-center gap-1 transition cursor-pointer">
+                  <i data-lucide="copy" class="w-3 h-3"></i>
+                  <span>Копировать</span>
+                </button>
+              </div>
+              <div id="${bubbleId}" class="assistant-bubble-body space-y-2"></div>
+            </div>
           </div>
         `;
-        div.appendChild(bubble);
         list.appendChild(div);
         safeUpdateIcons();
+
+        const bubbleBody = document.getElementById(bubbleId);
+        if (!bubbleBody) return;
 
         let charIndex = 0;
         const totalLen = content.length;
@@ -2444,13 +2596,13 @@
         function typeNextChunk() {
           charIndex += chunkSize;
           if (charIndex < totalLen) {
-            bubble.innerHTML = formatMarkdownReport(content.substring(0, charIndex)) + '<span class="inline-block w-2 h-4 bg-indigo-400 rounded-sm ml-1.5 animate-pulse align-middle shadow-md shadow-indigo-400/50"></span>';
+            bubbleBody.innerHTML = formatMarkdownReport(content.substring(0, charIndex)) + '<span class="inline-block w-2 h-4 bg-indigo-400 rounded-sm ml-1.5 animate-pulse align-middle shadow-md shadow-indigo-400/50"></span>';
             safeUpdateIcons();
             const chatCont = document.getElementById('assistantChatContainer');
             if (chatCont) chatCont.scrollTop = chatCont.scrollHeight;
             setTimeout(typeNextChunk, speed);
           } else {
-            bubble.innerHTML = formatMarkdownReport(content);
+            bubbleBody.innerHTML = formatMarkdownReport(content);
             safeUpdateIcons();
             const chatCont = document.getElementById('assistantChatContainer');
             if (chatCont) chatCont.scrollTop = chatCont.scrollHeight;
@@ -2478,7 +2630,7 @@
         <div class="p-2 rounded-xl bg-purple-500/15 text-purple-400 shrink-0">
           <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
         </div>
-        <span class="font-mono text-[11px]">SRE-Ассистент формулирует ответ...</span>
+        <span class="font-mono text-[11px]">AI-Ассистент формулирует ответ...</span>
       `;
       list.appendChild(div);
       safeUpdateIcons();
@@ -3468,7 +3620,6 @@
               <div class="flex items-center gap-1.5">
                 ${relTime ? `<span class="text-[10px] text-slate-500 font-mono">${relTime}</span>` : ''}
                 ${hasReportIcon}
-                <span class="text-[10px] font-mono text-slate-400 px-1.5 py-0.5 rounded bg-slate-900/60 border border-white/[0.04]">Chain: ${inc.chain_length || 1}</span>
               </div>
             </div>
             <div class="${isSel ? 'text-slate-200 font-medium' : 'text-slate-400'} ${fontCls} line-clamp-2">
@@ -3832,12 +3983,11 @@
             <div data-node-idx="${absIdx}" onclick="selectGraphNode(${absIdx})"
               class="btn-interactive smart-node-card shrink-0 flex-1 min-w-[170px] max-w-[220px] p-3 rounded-xl border ${cardBorder} ${selClass} shadow-md cursor-pointer group">
               
-              <div class="flex items-center justify-between text-[10px] font-mono mb-2">
+              <div class="flex items-center text-[10px] font-mono mb-2">
                 <span class="px-2 py-0.5 rounded border ${badgeStyle} flex items-center gap-1">
                   ${isRoot ? '<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>' : ''}
                   ${node.role}
                 </span>
-                <span class="text-slate-400 font-medium">${node.latency}</span>
               </div>
 
               <div class="flex items-start gap-2.5">
@@ -3849,8 +3999,6 @@
                   <p class="text-[11px] text-slate-300 truncate mt-0.5 font-sans">${escapeHtml(node.stage)}</p>
                   <div class="flex items-center gap-1 mt-1 text-[10px] font-mono text-slate-400">
                     <span class="truncate">${escapeHtml(node.category)}</span>
-                    <span>•</span>
-                    <span>${node.time}</span>
                   </div>
                 </div>
               </div>
@@ -3859,13 +4007,10 @@
           `;
 
           if (pOffset < pageNodes.length - 1) {
-            const nextNode = pageNodes[pOffset + 1];
-            const edgeLatency = nextNode.latency.replace('T0', '').trim() || '+0.0s';
             const strokeColor = isRoot ? '#f43f5e' : '#64748b';
 
             pageHtml += `
               <div class="flex flex-col items-center justify-center shrink-0 w-8 md:w-10 text-slate-500 select-none">
-                <span class="text-[8px] md:text-[9px] font-mono text-slate-400 mb-0.5">${edgeLatency}</span>
                 <svg class="w-8 md:w-10 h-4" viewBox="0 0 40 16" fill="none">
                   <path d="M 0 8 L 32 8" stroke="${strokeColor}" stroke-width="1.75" stroke-dasharray="3 3" />
                   <polygon points="32,4 40,8 32,12" fill="${strokeColor}" />
