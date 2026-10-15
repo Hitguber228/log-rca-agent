@@ -66,6 +66,7 @@ except Exception as _e:
 from src.agent import generate_rca_summary, stream_rca_summary, ask_sre_assistant, get_llm_config, get_llm_status, check_ollama_available
 from src.notifier import (
     get_active_chat_id,
+    are_telegram_alerts_enabled,
     save_chat_id_to_env,
     clear_chat_id_from_env,
     get_active_bot_token,
@@ -139,17 +140,6 @@ async def broadcast_live_event(event_type: str, data: dict):
         print(f"[!] WebSocket broadcast error: {e}", flush=True)
 
 
-@app.websocket("/ws/live")
-async def websocket_live_endpoint(websocket: WebSocket):
-    await ws_manager.connect(websocket)
-    try:
-        while True:
-            # Читаем сообщения от клиента для поддержки соединения
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        ws_manager.disconnect(websocket)
-    except Exception:
-        ws_manager.disconnect(websocket)
 
 
 # Прокси-обёртка для синхронизации PENDING_PINS между процессами
@@ -407,10 +397,10 @@ async def unbind_telegram():
 async def test_telegram_alert():
     current_chat_id = get_active_chat_id().strip()
     if not current_chat_id:
-        current_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-
-    if not current_chat_id:
         raise HTTPException(status_code=403, detail="Для начала авторизуйтесь в Telegram")
+
+    if not are_telegram_alerts_enabled():
+        raise HTTPException(status_code=403, detail="Telegram-оповещения отключены в настройках (TELEGRAM_ALERTS_ENABLED=false)")
 
     dummy_incident = {
         "first_affected_service": "test-service",
@@ -844,6 +834,9 @@ async def share_incident_to_telegram(payload: ShareTelegramSchema):
     chat_id = get_active_chat_id()
     if not chat_id:
         raise HTTPException(status_code=403, detail="Telegram не привязан. Нажмите кнопку Telegram в шапке для привязки.")
+
+    if not are_telegram_alerts_enabled():
+        raise HTTPException(status_code=403, detail="Telegram-оповещения отключены в настройках (TELEGRAM_ALERTS_ENABLED=false)")
 
     clean_report = payload.report_text.strip()
     incident_obj = {

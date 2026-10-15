@@ -72,13 +72,22 @@ dp = Dispatcher()
 # Клавиатуры интерфейса
 # ---------------------------------------------------------------------------
 
-def get_main_reply_keyboard() -> ReplyKeyboardMarkup:
+def get_main_reply_keyboard(is_bound: bool = False) -> ReplyKeyboardMarkup:
     """Постоянное нижнее меню быстрых действий дежурного инженера с эмодзи."""
+    if is_bound:
+        return ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="📊 Статус"), KeyboardButton(text="🚨 Инциденты")],
+                [KeyboardButton(text="🆔 Мой ID"), KeyboardButton(text="❌ Отвязать")],
+                [KeyboardButton(text="ℹ️ Помощь")],
+            ],
+            resize_keyboard=True,
+            persistent=True,
+        )
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🆔 Мой ID"), KeyboardButton(text="🔐 Верификация")],
-            [KeyboardButton(text="📊 Статус"), KeyboardButton(text="🚨 Инциденты")],
-            [KeyboardButton(text="ℹ️ Помощь"), KeyboardButton(text="❌ Отвязать")],
+            [KeyboardButton(text="📊 Статус"), KeyboardButton(text="ℹ️ Помощь")],
         ],
         resize_keyboard=True,
         persistent=True,
@@ -133,21 +142,29 @@ def get_incident_action_keyboard(incident_id: int, is_resolved: bool = False) ->
 async def handle_start(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
-    is_bound = (active_cid == user_cid)
-    status_badge = "✅ <b>BOUND (Активен)</b>" if is_bound else "⚠️ <b>NOT BOUND (Не привязан)</b>"
+    is_bound = bool(active_cid and active_cid == user_cid)
+    status_badge = "✅ <b>BOUND (Авторизован)</b>" if is_bound else "⚠️ <b>NOT BOUND (Не авторизован)</b>"
+
+    auth_description = (
+        "✅ <b>Вы авторизованы как активный дежурный инженер.</b> Критические алерты мониторинга направляются в этот чат."
+        if is_bound else
+        "⏸ <b>Вы не авторизованы.</b> Оповещения об авариях и управление инцидентами отключены до прохождения 2FA-верификации."
+    )
 
     welcome_text = (
         "👋 <b>Добро пожаловать в SRE Incident Alerting Bot!</b>\n\n"
         f"• 🆔 <b>Ваш Chat ID:</b> <code>{user_cid}</code>\n"
         f"• 🛡 <b>Статус дежурного:</b> {status_badge}\n\n"
-        "🔍 Система круглосуточно мониторит системные логи, агрегирует каскадные сбои и отправляет детализированный Root Cause Analysis (RCA).\n\n"
-        "Используйте кнопки меню внизу для быстрого управления:"
+        f"{auth_description}\n\n"
+        "🔍 Система мониторит системные логи, выявляет каскадные сбои и доставляет Root Cause Analysis (RCA).\n\n"
+        "Используйте кнопки меню внизу для управления:"
     )
-    await message.answer(welcome_text, reply_markup=get_main_reply_keyboard())
-    await message.answer(
-        "Нажмите на кнопку с номером, чтобы скопировать ваш Chat ID в буфер обмена:",
-        reply_markup=get_id_inline_keyboard(user_cid)
-    )
+    await message.answer(welcome_text, reply_markup=get_main_reply_keyboard(is_bound=is_bound))
+    if not is_bound:
+        await message.answer(
+            "Нажмите на кнопку с номером, чтобы скопировать ваш Chat ID для генерации PIN в веб-панели:",
+            reply_markup=get_id_inline_keyboard(user_cid)
+        )
 
 
 @dp.message(Command("id"))
@@ -168,7 +185,7 @@ async def handle_id_button(message: types.Message):
 async def handle_status_button(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
-    is_bound = (active_cid == user_cid)
+    is_bound = bool(active_cid and active_cid == user_cid)
     log_path = get_watched_log_path()
 
     if is_bound:
@@ -182,12 +199,12 @@ async def handle_status_button(message: types.Message):
         "📊 <b>Статус платформы мониторинга SRE:</b>\n\n"
         f"• 🆔 <b>Ваш Chat ID:</b> <code>{user_cid}</code>\n"
         f"• 👨‍💻 <b>Активный дежурный:</b> <code>{active_cid or 'Не привязан'}</code>\n"
-        f"• 🔐 <b>Статус авторизации:</b> {'✅ Привязан' if is_bound else '❌ Не привязан'}\n"
+        f"• 🔐 <b>Статус авторизации:</b> {'✅ Авторизован' if is_bound else '❌ Не авторизован'}\n"
         f"• 📁 <b>Отслеживаемый файл:</b> <code>{log_path}</code>\n"
         f"• ⚡ <b>Файл существует:</b> {'✅ Да' if log_path.exists() else '❌ Нет'}\n\n"
         f"{role_status}"
     )
-    await message.answer(status_text, reply_markup=get_main_reply_keyboard())
+    await message.answer(status_text, reply_markup=get_main_reply_keyboard(is_bound=is_bound))
 
 
 @dp.message(Command("verify"))
@@ -195,7 +212,7 @@ async def handle_status_button(message: types.Message):
 async def handle_verification_button(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
-    is_bound = (active_cid == user_cid)
+    is_bound = bool(active_cid and active_cid == user_cid)
 
     if is_bound:
         rebind_keyboard = InlineKeyboardMarkup(
@@ -213,7 +230,7 @@ async def handle_verification_button(message: types.Message):
         return
 
     text = (
-        "🔐 <b>Верификация дежурного инженера (2FA):</b>\n\n"
+        "🔐 <b>Верификация дежурного инженеров (2FA):</b>\n\n"
         "1. 🌐 Откройте веб-панель управления: http://127.0.0.1:8000\n"
         "2. 💬 В верхнем правом углу нажмите кнопку <b>Telegram</b>.\n"
         f"3. 🔑 Укажите ваш ID: <code>{user_cid}</code> и нажмите <b>«Получить PIN»</b>.\n"
@@ -225,6 +242,21 @@ async def handle_verification_button(message: types.Message):
 @dp.message(Command("incidents"))
 @dp.message(F.text.in_(["Инциденты", "🚨 Инциденты", "инциденты"]))
 async def handle_incidents_button(message: types.Message):
+    active_cid = get_active_chat_id()
+    user_cid = str(message.chat.id)
+    is_bound = bool(active_cid and active_cid == user_cid)
+
+    # Строгая проверка авторизации: неавторизованные пользователи не получают информацию об инцидентах
+    if not is_bound:
+        await message.answer(
+            "⚠️ <b>Доступ ограничен: вы не авторизованы.</b>\n\n"
+            "Просмотр производственных инцидентов и получение оперативных алертов заблокированы до завершения 2FA-авторизации 🛡.\n\n"
+            f"• 🆔 Ваш Chat ID: <code>{user_cid}</code>\n"
+            "Чтобы авторизоваться, запросите 4-значный PIN-код в веб-панели (http://127.0.0.1:8000) и отправьте его сюда.",
+            reply_markup=get_main_reply_keyboard(is_bound=False)
+        )
+        return
+
     try:
         from src.db import SessionLocal
         from src.models import LogEvent
@@ -243,7 +275,7 @@ async def handle_incidents_button(message: types.Message):
         if not events:
             await message.answer(
                 "✅ <b>Всё спокойно!</b> В базе данных нет активных ошибок или критических инцидентов.",
-                reply_markup=get_main_reply_keyboard()
+                reply_markup=get_main_reply_keyboard(is_bound=True)
             )
             return
 
@@ -270,23 +302,28 @@ async def handle_unbind_button(message: types.Message):
     active_cid = get_active_chat_id()
     user_cid = str(message.chat.id)
 
-    if active_cid == user_cid:
+    if active_cid and active_cid == user_cid:
         clear_chat_id_from_env()
         await message.answer(
             "ℹ️ <b>Привязка чата успешно сброшена!</b>\n\n"
-            "Уведомления в этот чат приостановлены. Для возобновления нажмите кнопку «🔐 Верификация».",
-            reply_markup=get_main_reply_keyboard()
+            "Уведомления в этот чат полностью отключены. Вы больше не авторизованы как дежурный.\n"
+            "Для возобновления нажмите кнопку «🔐 Верификация».",
+            reply_markup=get_main_reply_keyboard(is_bound=False)
         )
     else:
         await message.answer(
-            "⚠️ Этот чат не является активным зарегистрированным дежурным.",
-            reply_markup=get_main_reply_keyboard()
+            "⚠️ Этот чат не является авторизованным дежурным.",
+            reply_markup=get_main_reply_keyboard(is_bound=False)
         )
 
 
 @dp.message(Command("help"))
 @dp.message(F.text.in_(["Помощь", "ℹ️ Помощь", "помощь", "Справка", "справка"]))
 async def handle_help_button(message: types.Message):
+    active_cid = get_active_chat_id()
+    user_cid = str(message.chat.id)
+    is_bound = bool(active_cid and active_cid == user_cid)
+
     help_text = (
         "📖 <b>Справочник команд и кнопок SRE-бота:</b>\n\n"
         "• 🆔 <b>Мой ID</b> — узнать и скопировать в буфер ваш Telegram Chat ID\n"
@@ -296,7 +333,7 @@ async def handle_help_button(message: types.Message):
         "• ❌ <b>Отвязать</b> — отключить получение уведомлений об инцидентах\n\n"
         "<i>Для подтверждения привязки просто отправьте в чат полученный 4-значный PIN-код (например: <code>1234</code>).</i>"
     )
-    await message.answer(help_text, reply_markup=get_main_reply_keyboard())
+    await message.answer(help_text, reply_markup=get_main_reply_keyboard(is_bound=is_bound))
 
 
 # ---------------------------------------------------------------------------
@@ -324,21 +361,23 @@ async def handle_pin_or_arbitrary_text(message: types.Message):
                 "✅ <b>Авторизация успешно подтверждена!</b> 🎉\n\n"
                 f"Чат <code>{user_cid}</code> надёжно привязан к системе мониторинга 🛡.\n"
                 "Сюда будут незамедлительно поступать алерты о критических сбоях 🚨 и отчёты RCA с кнопками быстрого реагирования ⚡.",
-                reply_markup=get_main_reply_keyboard()
+                reply_markup=get_main_reply_keyboard(is_bound=True)
             )
         else:
             await message.answer(
                 "❌ <b>Неверный или истёкший PIN-код.</b>\n\n"
                 f"Убедитесь, что вы запросили PIN в веб-панели (http://127.0.0.1:8000) для Chat ID <code>{user_cid}</code> 🔑.\n"
                 "Срок действия одноразового кода — 5 минут (максимум 3 попытки).",
-                reply_markup=get_main_reply_keyboard()
+                reply_markup=get_main_reply_keyboard(is_bound=False)
             )
         return
 
-    # 2. Если отправлен произвольный текст — напоминаем о кнопках меню
+    # 2. Если отправлен произвольный текст — напоминаем о кнопках меню с учётом авторизации
+    active_cid = get_active_chat_id()
+    is_bound = bool(active_cid and active_cid == user_cid)
     await message.answer(
         "ℹ️ <b>Используйте меню быстрых действий внизу</b> для работы с ботом или отправьте 4-значный PIN-код для привязки.",
-        reply_markup=get_main_reply_keyboard()
+        reply_markup=get_main_reply_keyboard(is_bound=is_bound)
     )
 
 
@@ -366,6 +405,12 @@ async def handle_copy_id_callback(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("resolve:"))
 async def handle_resolve_callback(callback: CallbackQuery):
+    active_cid = get_active_chat_id()
+    user_cid = str(callback.message.chat.id) if callback.message else str(callback.from_user.id)
+    if not (active_cid and active_cid == user_cid):
+        await callback.answer("⚠️ Действие отклонено: вы не авторизованы как дежурный.", show_alert=True)
+        return
+
     inc_id = int(callback.data.split(":")[1])
     try:
         from src.incident_store import set_incident_resolved
@@ -379,6 +424,12 @@ async def handle_resolve_callback(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("reopen:"))
 async def handle_reopen_callback(callback: CallbackQuery):
+    active_cid = get_active_chat_id()
+    user_cid = str(callback.message.chat.id) if callback.message else str(callback.from_user.id)
+    if not (active_cid and active_cid == user_cid):
+        await callback.answer("⚠️ Действие отклонено: вы не авторизованы как дежурный.", show_alert=True)
+        return
+
     inc_id = int(callback.data.split(":")[1])
     try:
         from src.incident_store import set_incident_resolved
@@ -392,6 +443,12 @@ async def handle_reopen_callback(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("clearcache:"))
 async def handle_clearcache_callback(callback: CallbackQuery):
+    active_cid = get_active_chat_id()
+    user_cid = str(callback.message.chat.id) if callback.message else str(callback.from_user.id)
+    if not (active_cid and active_cid == user_cid):
+        await callback.answer("⚠️ Действие отклонено: вы не авторизованы как дежурный.", show_alert=True)
+        return
+
     inc_id = str(callback.data.split(":")[1])
     try:
         from src.incident_store import clear_cached_report

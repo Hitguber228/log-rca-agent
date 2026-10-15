@@ -37,11 +37,48 @@ def _find_base_dir() -> Path:
 
 BASE_DIR = _find_base_dir()
 ENV_PATH = BASE_DIR / ".env"
+SESSION_STORAGE_PATH = BASE_DIR / ".active_session.json"
+
+
+def are_telegram_alerts_enabled() -> bool:
+    """Проверяет, включены ли Telegram-оповещения в файле .env или переменных окружения."""
+    targets = [ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
+    for target in targets:
+        if target.exists():
+            try:
+                content = target.read_text(encoding="utf-8")
+                match = re.search(r"^TELEGRAM_ALERTS_ENABLED=(.*)$", content, flags=re.MULTILINE | re.IGNORECASE)
+                if match:
+                    val = match.group(1).strip().lower()
+                    return val in ("true", "1", "yes")
+            except Exception:
+                pass
+    env_val = os.getenv("TELEGRAM_ALERTS_ENABLED", "false").strip().lower()
+    return env_val in ("true", "1", "yes")
 
 
 def get_active_chat_id() -> str:
-    """Возвращает актуальный Chat ID дежурного, синхронизируясь с файлом .env."""
+    """
+    Возвращает актуальный Chat ID авторизованного дежурного инженера.
+    Синхронизируется между всеми процессами (FastAPI, Watcher, Bot) через session storage и .env.
+    Если пользователь не авторизован или привязка сброшена, гарантированно возвращает пустую строку.
+    """
     global ACTIVE_CHAT_ID
+
+    # 1. Проверяем файл активной межпроцессной сессии
+    if SESSION_STORAGE_PATH.exists():
+        try:
+            content = SESSION_STORAGE_PATH.read_text(encoding="utf-8")
+            data = json.loads(content)
+            if isinstance(data, dict) and "chat_id" in data:
+                cid = str(data.get("chat_id") or "").strip()
+                ACTIVE_CHAT_ID = cid
+                os.environ["TELEGRAM_CHAT_ID"] = cid
+                return cid
+        except Exception:
+            pass
+
+    # 2. Проверяем файл .env
     targets = [ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"]
     for target in targets:
         if target.exists():
@@ -51,27 +88,32 @@ def get_active_chat_id() -> str:
                 if match:
                     val = match.group(1).strip()
                     ACTIVE_CHAT_ID = val
+                    os.environ["TELEGRAM_CHAT_ID"] = val
                     return val
             except Exception:
                 pass
 
-    if ACTIVE_CHAT_ID:
-        return ACTIVE_CHAT_ID
-
-    env_val = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-    if env_val:
-        ACTIVE_CHAT_ID = env_val
-        return env_val
-
+    ACTIVE_CHAT_ID = ""
+    os.environ["TELEGRAM_CHAT_ID"] = ""
     return ""
 
 
 def save_chat_id_to_env(chat_id: str):
+    """Сохраняет Chat ID авторизованного дежурного и синхронизирует сессию."""
     global ACTIVE_CHAT_ID
     clean_id = str(chat_id).strip()
     ACTIVE_CHAT_ID = clean_id
     os.environ["TELEGRAM_CHAT_ID"] = clean_id
 
+    # 1. Межпроцессное состояние сессии
+    try:
+        tmp_session = SESSION_STORAGE_PATH.with_suffix(".tmp")
+        tmp_session.write_text(json.dumps({"chat_id": clean_id, "updated_at": time.time()}), encoding="utf-8")
+        tmp_session.replace(SESSION_STORAGE_PATH)
+    except Exception:
+        pass
+
+    # 2. Обновление .env файлов
     targets = {ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"}
     for target in targets:
         if target.exists():
@@ -92,21 +134,33 @@ def save_chat_id_to_env(chat_id: str):
 
 
 def clear_chat_id_from_env():
+    """Сбрасывает авторизацию дежурного инженера и удаляет привязанный Chat ID."""
     global ACTIVE_CHAT_ID
     ACTIVE_CHAT_ID = ""
     os.environ["TELEGRAM_CHAT_ID"] = ""
 
+    # 1. Сброс файла сессии
+    try:
+        if SESSION_STORAGE_PATH.exists():
+            SESSION_STORAGE_PATH.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+    # 2. Очистка .env файлов
     targets = {ENV_PATH, Path.cwd() / ".env", Path(__file__).resolve().parent.parent / ".env"}
     for target in targets:
         if target.exists():
             try:
                 content = target.read_text(encoding="utf-8")
-                new_content = re.sub(
-                    r"^TELEGRAM_CHAT_ID=.*$",
-                    "TELEGRAM_CHAT_ID=",
-                    content,
-                    flags=re.MULTILINE,
-                )
+                if re.search(r"^TELEGRAM_CHAT_ID=.*$", content, flags=re.MULTILINE):
+                    new_content = re.sub(
+                        r"^TELEGRAM_CHAT_ID=.*$",
+                        "TELEGRAM_CHAT_ID=",
+                        content,
+                        flags=re.MULTILINE,
+                    )
+                else:
+                    new_content = content.rstrip() + "\nTELEGRAM_CHAT_ID=\n"
                 target.write_text(new_content, encoding="utf-8")
             except Exception:
                 pass
@@ -236,7 +290,11 @@ def format_incident_alert(incident: Dict[str, Any], rca_summary: str) -> str:
 async def send_telegram_alert(incident: Dict[str, Any], rca_summary: str) -> bool:
     chat_id = get_active_chat_id()
     if not chat_id:
-        print("[!] Оповещение отменено: Telegram chat_id не привязан.")
+        print("[!] Оповещение отменено: Telegram chat_id не привязан (дежурный инженер не авторизован).")
+        return False
+
+    if not are_telegram_alerts_enabled():
+        print("[!] Оповещение отменено: TELEGRAM_ALERTS_ENABLED отключен в настройках.")
         return False
 
     bot_token = get_active_bot_token()

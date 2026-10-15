@@ -16,8 +16,12 @@ ENV/
 .bind_request.json
 .pending_pins.json
 .pending_pins.tmp
+.active_session.json
+.active_session.tmp
 .blocked_users.json
 last_incident.json
+scratch/
+
 
 # Local databases & logs
 *.log

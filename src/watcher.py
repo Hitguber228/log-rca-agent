@@ -29,7 +29,7 @@ if sys.platform == "win32":
 
 from src.parser import parse_raw_log
 from src.agent import generate_rca_summary
-from src.notifier import send_telegram_alert, get_active_chat_id, get_watched_log_path
+from src.notifier import send_telegram_alert, get_active_chat_id, get_watched_log_path, are_telegram_alerts_enabled
 from src.db import SessionLocal
 from src.models import LogEvent
 from src.config import settings
@@ -322,14 +322,16 @@ def run_watcher():
                 should_alert_tg = False
                 filter_reason = f"затронут только 1 сервис ({', '.join(distinct_services) or 'unknown'}), активно правило 'Только каскадные'"
 
-            # Генерация отчёта LLM и отправка в Telegram
+            # Проверка авторизации дежурного инженера и правил алертинга
             active_chat_id = get_active_chat_id()
             if not active_chat_id:
-                print("[WATCHER BLOCKED] Telegram не привязан (UNBOUND). Алерт отменен.", flush=True)
+                print("[WATCHER BLOCKED] Telegram не привязан (дежурный инженер не авторизован). Алерт отменен.", flush=True)
+            elif not are_telegram_alerts_enabled():
+                print("[WATCHER BLOCKED] Оповещения в Telegram отключены в конфигурации (TELEGRAM_ALERTS_ENABLED=false).", flush=True)
             elif not should_alert_tg:
                 print(f"[WATCHER] Алерт в Telegram отфильтрован правилами: {filter_reason}.", flush=True)
             else:
-                print(f"[WATCHER] Отправка алерта #{saved_event_id} в Chat ID: {active_chat_id}", flush=True)
+                print(f"[WATCHER] Отправка алерта #{saved_event_id} авторизованному дежурному (Chat ID: {active_chat_id})", flush=True)
                 try:
                     report = asyncio.run(generate_rca_summary(incident_data))
 

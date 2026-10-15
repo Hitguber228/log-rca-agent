@@ -82,3 +82,40 @@ def test_copilot_chat_endpoint_blocks_prompt_injection(client):
     assert "SRE Guardrails" in data["reply"]
     assert "оружия" in data["reply"]
 
+
+def test_telegram_test_alert_blocked_when_unauthorized(client, monkeypatch):
+    import api
+    monkeypatch.setattr(api, "get_active_chat_id", lambda: "")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "")
+    response = client.post("/api/telegram/test-alert")
+    assert response.status_code == 403
+    assert "Для начала авторизуйтесь в Telegram" in response.json().get("detail", "")
+
+
+def test_telegram_test_alert_blocked_when_alerts_disabled(client, monkeypatch):
+    import api
+    monkeypatch.setattr(api, "get_active_chat_id", lambda: "12345678")
+    monkeypatch.setattr(api, "are_telegram_alerts_enabled", lambda: False)
+    response = client.post("/api/telegram/test-alert")
+    assert response.status_code == 403
+    assert "отключены" in response.json().get("detail", "")
+
+
+
+@pytest.mark.anyio
+async def test_send_telegram_alert_aborts_without_auth(monkeypatch):
+    import src.notifier
+    monkeypatch.setattr(src.notifier, "get_active_chat_id", lambda: "")
+    success = await src.notifier.send_telegram_alert({"incident_id": 1}, "Test summary")
+    assert success is False
+
+
+@pytest.mark.anyio
+async def test_send_telegram_alert_aborts_when_disabled(monkeypatch):
+    import src.notifier
+    monkeypatch.setattr(src.notifier, "get_active_chat_id", lambda: "12345678")
+    monkeypatch.setattr(src.notifier, "are_telegram_alerts_enabled", lambda: False)
+    success = await src.notifier.send_telegram_alert({"incident_id": 1}, "Test summary")
+    assert success is False
+
+
