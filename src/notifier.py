@@ -72,9 +72,10 @@ def get_active_chat_id() -> str:
             data = json.loads(content)
             if isinstance(data, dict) and "chat_id" in data:
                 cid = str(data.get("chat_id") or "").strip()
-                ACTIVE_CHAT_ID = cid
-                os.environ["TELEGRAM_CHAT_ID"] = cid
-                return cid
+                if cid and cid.lower() not in ("none", "null", '""', "''", "0"):
+                    ACTIVE_CHAT_ID = cid
+                    os.environ["TELEGRAM_CHAT_ID"] = cid
+                    return cid
         except Exception:
             pass
 
@@ -84,18 +85,25 @@ def get_active_chat_id() -> str:
         if target.exists():
             try:
                 content = target.read_text(encoding="utf-8")
-                match = re.search(r"^TELEGRAM_CHAT_ID=(.*)$", content, flags=re.MULTILINE)
+                match = re.search(r"^TELEGRAM_CHAT_ID=(.+)$", content, flags=re.MULTILINE)
                 if match:
                     val = match.group(1).strip()
-                    ACTIVE_CHAT_ID = val
-                    os.environ["TELEGRAM_CHAT_ID"] = val
-                    return val
+                    if val and val.lower() not in ("none", "null", '""', "''", "0"):
+                        ACTIVE_CHAT_ID = val
+                        os.environ["TELEGRAM_CHAT_ID"] = val
+                        return val
             except Exception:
                 pass
 
     ACTIVE_CHAT_ID = ""
     os.environ["TELEGRAM_CHAT_ID"] = ""
     return ""
+
+
+def is_duty_engineer_authorized() -> bool:
+    """Проверяет, авторизован ли дежурный инженер через валидную 2FA-привязку."""
+    return bool(get_active_chat_id())
+
 
 
 def save_chat_id_to_env(chat_id: str):
@@ -445,7 +453,7 @@ def verify_telegram_binding(
     record["attempts"] = attempts
 
     expected_cid = str(record.get("chat_id", "")).strip()
-    if expected_cid and expected_cid != clean_chat_id:
+    if not expected_cid or expected_cid != clean_chat_id:
         if attempts >= MAX_PIN_ATTEMPTS:
             pins.pop(clean_pin, None)  # Сжигаем скомпрометированный PIN
         else:

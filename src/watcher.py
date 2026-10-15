@@ -322,40 +322,46 @@ def run_watcher():
                 should_alert_tg = False
                 filter_reason = f"затронут только 1 сервис ({', '.join(distinct_services) or 'unknown'}), активно правило 'Только каскадные'"
 
-            # Проверка авторизации дежурного инженера и правил алертинга
+            # 1. Автономная обработка инцидента: генерация RCA и кэширование работают локально
+            # независимо от наличия Telegram-авторизации дежурного инженера
+            report = ""
+            try:
+                report = asyncio.run(generate_rca_summary(incident_data))
+
+                # Кэшируем отчёт в БД, чтобы веб-панель сразу видела готовый RCA-отчёт
+                try:
+                    from src.incident_store import set_cached_report
+                    set_cached_report(str(saved_event_id), report)
+                    if incident_data.get("trace_id"):
+                        set_cached_report(str(incident_data["trace_id"]), report)
+                except Exception as ex:
+                    print(f"[!] [WATCHER] Ошибка сохранения RCA в кэш: {ex}", flush=True)
+
+                # Оповещаем WebSocket о готовом RCA
+                notify_api_broadcast("rca_report_ready", {
+                    "incident_id": str(saved_event_id),
+                    "trace_id": incident_data.get("trace_id"),
+                    "report": report
+                })
+            except Exception as ex:
+                print(f"[!] [WATCHER] Ошибка локальной генерации RCA: {ex}", flush=True)
+
+            # 2. Доставка алерта в Telegram: строго блокируется, если дежурный не авторизован через 2FA
             active_chat_id = get_active_chat_id()
             if not active_chat_id:
-                print("[WATCHER BLOCKED] Telegram не привязан (дежурный инженер не авторизован). Алерт отменен.", flush=True)
+                print(f"[WATCHER BLOCKED] Инцидент #{saved_event_id} сохранён в системе. Алерт в Telegram отменён: дежурный инженер не авторизован.", flush=True)
             elif not are_telegram_alerts_enabled():
-                print("[WATCHER BLOCKED] Оповещения в Telegram отключены в конфигурации (TELEGRAM_ALERTS_ENABLED=false).", flush=True)
+                print(f"[WATCHER BLOCKED] Инцидент #{saved_event_id} сохранён в системе. Алерт в Telegram отменён: TELEGRAM_ALERTS_ENABLED=false.", flush=True)
             elif not should_alert_tg:
-                print(f"[WATCHER] Алерт в Telegram отфильтрован правилами: {filter_reason}.", flush=True)
+                print(f"[WATCHER] Инцидент #{saved_event_id} сохранён в системе. Алерт в Telegram отфильтрован правилами: {filter_reason}.", flush=True)
             else:
                 print(f"[WATCHER] Отправка алерта #{saved_event_id} авторизованному дежурному (Chat ID: {active_chat_id})", flush=True)
                 try:
-                    report = asyncio.run(generate_rca_summary(incident_data))
-
-                    # Кэшируем отчёт в БД, чтобы веб-панель сразу видела готовый RCA-отчёт
-                    try:
-                        from src.incident_store import set_cached_report
-                        set_cached_report(str(saved_event_id), report)
-                        if incident_data.get("trace_id"):
-                            set_cached_report(str(incident_data["trace_id"]), report)
-                    except Exception as ex:
-                        print(f"[!] [WATCHER] Ошибка сохранения RCA в кэш: {ex}", flush=True)
-
-                    # Оповещаем WebSocket о готовом RCA
-                    notify_api_broadcast("rca_report_ready", {
-                        "incident_id": str(saved_event_id),
-                        "trace_id": incident_data.get("trace_id"),
-                        "report": report
-                    })
-
                     success = asyncio.run(send_telegram_alert(incident_data, report))
                     if success:
                         print("[WATCHER] Алерт успешно доставлен в Telegram.", flush=True)
                 except Exception as ex:
-                    print(f"[!] [WATCHER] Ошибка генерации/доставки алерта: {ex}", flush=True)
+                    print(f"[!] [WATCHER] Ошибка доставки алерта: {ex}", flush=True)
 
 
         # Периодическая проверка политики хранения каждые 4 часа

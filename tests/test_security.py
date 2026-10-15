@@ -119,3 +119,38 @@ async def test_send_telegram_alert_aborts_when_disabled(monkeypatch):
     assert success is False
 
 
+def test_is_duty_engineer_authorized(monkeypatch):
+    import src.notifier
+    monkeypatch.setattr(src.notifier, "get_active_chat_id", lambda: "")
+    assert src.notifier.is_duty_engineer_authorized() is False
+
+    monkeypatch.setattr(src.notifier, "get_active_chat_id", lambda: "987654321")
+    assert src.notifier.is_duty_engineer_authorized() is True
+
+
+def test_verify_telegram_binding_rejects_empty_or_mismatched_chat_id(monkeypatch):
+    import src.notifier
+    # Если в сохраненном пине chat_id пустой — верификация обязана отклонить
+    monkeypatch.setattr(src.notifier, "_load_pending_pins", lambda: {
+        "1234": {"chat_id": "", "created_at": 9999999999.0, "attempts": 0}
+    })
+    assert src.notifier.verify_telegram_binding("111222", "1234") is False
+
+    # Если chat_id отличается — отклоняется
+    monkeypatch.setattr(src.notifier, "_load_pending_pins", lambda: {
+        "1234": {"chat_id": "999888", "created_at": 9999999999.0, "attempts": 0}
+    })
+    saved = []
+    monkeypatch.setattr(src.notifier, "save_chat_id_to_env", lambda cid: saved.append(cid))
+    assert src.notifier.verify_telegram_binding("111222", "1234") is False
+    assert len(saved) == 0
+
+    # Если chat_id полностью совпадает — успешно привязывается
+    monkeypatch.setattr(src.notifier, "_load_pending_pins", lambda: {
+        "1234": {"chat_id": "999888", "created_at": 9999999999.0, "attempts": 0}
+    })
+    assert src.notifier.verify_telegram_binding("999888", "1234") is True
+    assert saved == ["999888"]
+
+
+
